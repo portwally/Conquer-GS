@@ -385,12 +385,12 @@ the enemy base with the fog lifted, and our units fighting there
 
 Memory banks: $E1 is the visible screen, $01 a work buffer, $02 the top
 bar and sidebar background, $03-$05 the UI layer and the two end banners,
-$07 the sprite and tile pixels, and $06 the compiled sprites and tiles plus
-the screen-copy routine. The UI layer, banners, sprites and tiles are
-stored run-length compressed in CONQUER.DATA. Before it takes over the machine,
-the game reads that file through ProDOS (4 KB at a time into bank 0, then
-on to the upper half of bank $07) and unpacks from there, at start and on
-every restart. The file also holds the options screen, the name tags
+$07 the sprite and tile pixels, $06 the compiled sprites and tiles plus
+the screen-copy routine, and $08 CONQUER.DATA as loaded. The UI layer,
+banners, sprites and tiles are stored run-length compressed in
+CONQUER.DATA. Before it takes over the machine, the game reads that file
+through ProDOS (4 KB at a time into bank 0, then on to bank $08) and
+unpacks from there, at start and on every restart. The file also holds the options screen, the name tags
 (unpacked after the sprites in bank $07) and each map as one packed block:
 its tiles, which are blocked, its ore, its radar picture, the starting
 buildings and units, where harvesters unload, where new units appear and
@@ -513,8 +513,15 @@ gold, the enemy red.
   the tank (its turret lit on top, casting a shadow on the hull), the
   harvester (an ore hopper and a cab with a windshield), the buggy (four
   wheels, a driver and a machine gun), the soldier (helmet, face, rifle)
-  and the rocket soldier (a launcher on the shoulder). Enemy units are the
-  same, mirrored.
+  and the rocket soldier (a launcher on the shoulder). Each faces the way
+  it moves: right, left (the same, mirrored), up (seen from behind: the
+  tank's barrel forward, the soldier's back with the rifle over his
+  shoulder) or down (from the front); sideways and diagonal moves turn it
+  left or right, straight up or down moves turn it that way, and units
+  that shoot (turrets too) turn toward the target the way it is furthest.
+  The enemy's are the same drawings in red. Each unit type has its four
+  sprites one after the other: right, left, up, down (flags F_LEFT and
+  F_VERT pick one).
 - The buildings and the defense turret are little 3D models made of
   1-pixel blocks (boxes, cylinders, domes, a hut's half cylinder, waisted
   cooling towers), drawn as seen from the south at an angle: tops facing
@@ -524,11 +531,15 @@ gold, the enemy red.
   tower flying a flag, on its 3x3 pad), the barracks (a Quonset hut with a
   porch and sandbags; 2x2, or in the middle of the enemy's 3x3 pad), the
   power plant (a hall with two cooling towers), the turret (a gun dome on
-  a concrete base, drawn facing either way with the light still from the
-  left, so it turns toward its target) and the sidebar icons of the power
-  plant and barracks are made this way.
+  a concrete base, drawn with its barrel right, left, up and down, the
+  light still from the left, so it turns toward its target) and the
+  sidebar icons of the power plant and barracks are made this way.
 
 ## Requirements
 
-Python 3, Cadius (`brew install cadius`) and Ample, which includes MAME and
-the `apple2gs` ROM set.
+The game needs an Apple IIgs with at least 1 MB of memory (memory banks
+up to $08): a ROM 01 with a memory card, or a ROM 3. MAME emulates a 2 MB
+IIgs by default.
+
+To build and test it: Python 3, Cadius (`brew install cadius`) and Ample,
+which includes MAME and the `apple2gs` ROM set.

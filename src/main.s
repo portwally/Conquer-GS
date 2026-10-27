@@ -70,8 +70,8 @@ LOSEBANK equ   $05
 CODEBANK equ   $06              ; compiled sprites
 SPRBANK  equ   $07              ; unpacked sprite pixels (from $0000)
 DOCDEST  equ   $FF              ; loadfile: "bank" meaning DOC sound RAM
-DATABANK equ   SPRBANK          ; CONQUER.DATA as loaded, at DATAADDR
-DATAADDR equ   $8000
+DATABANK equ   $08              ; CONQUER.DATA as loaded, at DATAADDR
+DATAADDR equ   $0000            ;   (a bank of its own: up to 64K)
 
 *--- ProDOS 8 and ROM, used only before we take over
 
@@ -1605,24 +1605,55 @@ approach lda   utile,y          ; any tile from where it's in range
          stx   self
          jmp   pathto
 
-* facetarget: X = unit, Y = target; turn toward it
+* facetarget: X = unit, Y = target; turn toward it: sideways, or up or
+* down when it is further that way (keeps X, Y)
 facetarget
+         phy
+         lda   uy,y             ; dy, dx to the target
+         sec
+         sbc   uy,x
+         sta   tmp2
          lda   ux,y
-         cmp   ux,x
+         sec
+         sbc   ux,x
+         sta   tmp
+         ora   tmp2
+         beq   :keep            ; (the same spot: as it is)
+         lda   tmp2
+         jsr   absval
+         pha                    ; |dy|
+         lda   tmp
+         jsr   absval
+         cmp   1,s              ; |dx| >= |dy|: sideways
+         pla
+         bcs   :side
+         lda   #F_VERT          ; up (dy < 0) or down
+         ldy   tmp2
+         bmi   :turn
+         lda   #F_VERT+F_LEFT
+         bra   :turn
+:side    lda   #0               ; right (dx > 0) or left
+         ldy   tmp
+         bpl   :turn
+         lda   #F_LEFT
+:turn    jsr   face
+:keep    ply
+         rts
+
+* face: X = unit, A = the way it is to face (0 right, F_LEFT left,
+* F_VERT up, F_VERT + F_LEFT down): turned (and redrawn) if it faces
+* another way (keeps X)
+face     sta   tmp
+         lda   uflags,x
+         and   #F_LEFT+F_VERT
+         cmp   tmp
          beq   :rts
          lda   uflags,x
-         bcs   :right
-         bit   #F_LEFT
-         bne   :rts
-         ora   #F_LEFT+F_DIRTY
-         sta   uflags,x
-:rts     rts
-:right   bit   #F_LEFT
-         beq   :rts
-         eor   #F_LEFT
+         and   #$FFFF-F_LEFT-F_VERT
+         ora   tmp
          ora   #F_DIRTY
          sta   uflags,x
-         rts
+:rts     rts
 
 * fire: X = shooter, Y = target
 fire     lda   urate,x
@@ -1867,25 +1898,23 @@ step     lda   unext,x
          bcc   :face
          lda   ntile
          jsr   sight
-:face    lda   ntile            ; face the way we go
-         and   #MAPW-1
+:face    lda   ntile            ; face the way we go: sideways when the
+         and   #MAPW-1          ;   column changes, else up or down
          sta   tmp
          lda   utile,x
          and   #MAPW-1
          cmp   tmp
-         beq   :walk
-         lda   uflags,x
-         bcc   :right
-         bit   #F_LEFT
-         bne   :walk
-         ora   #F_LEFT+F_DIRTY
-         sta   uflags,x
-         bra   :walk
-:right   bit   #F_LEFT
-         beq   :walk
-         eor   #F_LEFT
-         ora   #F_DIRTY
-         sta   uflags,x
+         beq   :vert
+         lda   #0               ; right
+         bcc   :turn
+         lda   #F_LEFT          ; left
+         bra   :turn
+:vert    lda   ntile
+         cmp   utile,x
+         lda   #F_VERT          ; up (a row above)
+         bcc   :turn
+         lda   #F_VERT+F_LEFT   ; down
+:turn    jsr   face
 
 :walk    lda   unext,x          ; world pixels of the next tile
          and   #MAPW-1
@@ -2497,9 +2526,9 @@ render   stz   fullview
          bit   #F_BUILDING
          bne   :hurt
          phx
-         lda   uflags,x
-         and   #F_LEFT          ; left-facing sprite follows the right one
-         lsr
+         lda   uflags,x         ; its sprite: right, left (F_LEFT), up
+         and   #F_LEFT+F_VERT   ;   (F_VERT) or down (both), one after
+         lsr                    ;   the other
          lsr
          clc
          adc   uspr,x

@@ -541,7 +541,8 @@ def make_tileset():
 
 
 # ---------------------------------------------------------------- units
-# All units face right; enemies are mirrored. Team colors: T main,
+# Units face right (the grids below); left is the same mirrored; up and
+# down have grids of their own (further down). Team colors: T main,
 # t shade, u darkest, H highlight.
 
 TANK = [  # turret and hull edges: lit to the top left, shaded below
@@ -636,6 +637,191 @@ ROCKET = [  # a soldier with a launcher on the shoulder
     ".....kxkxk......",
     "....kkk.kkk.....",
     "................",
+    "................",
+]
+
+
+# The same units moving up (seen from behind) and down (from the front);
+# the light still comes from the top left.
+
+TANK_UP = [
+    "......kkkk......",
+    "......kLLk......",
+    ".kkk..kXxk..kkk.",
+    "kXxkHHkXxkHtkxXk",
+    "kxkkHTkXxkTtkkxk",
+    "kXxkHTkXxkTtkxXk",
+    "kxkkHHHHHHttkkxk",
+    "kXxkHHLTTTttkxXk",
+    "kxkkHHTTTTttkkxk",
+    "kXxkHHTTTtttkxXk",
+    "kxkkHttttttukkxk",
+    "kXxkHTuuuuuukxXk",
+    "kxkkHTtTtTTtkkxk",
+    "kXxkHTTTTTTtkxXk",
+    "kxkktttttttukkxk",
+    ".kkkkkkkkkkkkkk.",
+]
+TANK_DOWN = [
+    ".kkkkkkkkkkkkkk.",
+    "kXxkHHHHHHHtkxXk",
+    "kxkkHTTTTTTtkkxk",
+    "kXxkHTTTTTTtkxXk",
+    "kxkkHHHHHHttkkxk",
+    "kXxkHHLTTTttkxXk",
+    "kxkkHHTTTTttkkxk",
+    "kXxkHHTTTtttkxXk",
+    "kxkkHttkXkttkkxk",
+    "kXxkHTukXkuTkxXk",
+    "kxkkHTukXkuTkkxk",
+    "kXxktttkXktukxXk",
+    ".kkk..kXxk..kkk.",
+    "......kXxk......",
+    "......kLLk......",
+    "......kkkk......",
+]
+HARVESTER_UP = [
+    "................",
+    "..kkkkkkkkkkkk..",
+    ".kXkLLLLLLLXxkk.",
+    "kxXkLWWWWWWXxkXk",
+    "kXxkLWWWWWWXxkxk",
+    "kxXkXXXXXXXxxkXk",
+    "kXxkkkkkkkkkkkxk",
+    "kxXkHHHHHHHHtkXk",
+    "kXxkHuuuuuuTtkxk",
+    "kxXkHuOhOOOTtkXk",
+    "kXxkHuOOOhOTtkxk",
+    "kxXkHuOhOOOTtkXk",
+    "kXxkHuOOOOhTtkxk",
+    "kxXkHTTTTTTTtkXk",
+    "kXxkttttttttukxk",
+    ".kkkkkkkkkkkkkk.",
+]
+HARVESTER_DOWN = [
+    ".kkkkkkkkkkkkkk.",
+    "kXxkHHHHHHHHtkXk",
+    "kxXkHuuuuuuTtkxk",
+    "kXxkHuOhOOOTtkXk",
+    "kxXkHuOOOhOTtkxk",
+    "kXxkHuOhOOOTtkXk",
+    "kxXkHTTTTTTTtkxk",
+    "kXxkttttttttukXk",
+    "kxXkkkkkkkkkkkxk",
+    "kXxkLLLLLLLXxkXk",
+    "kxXkLXXXXXXXxkxk",
+    "kXxkXWWWWWWxxkXk",
+    "kxXkxWWWWWWxxkxk",
+    ".kkkkxxxxxxkkkk.",
+    "....kkkkkkkk....",
+    "................",
+]
+BUGGY_UP = [  # four wheels, the driver, the gun forward
+    "................",
+    "................",
+    "......kkkk......",
+    "......kLLk......",
+    ".kkk..kXxk..kkk.",
+    "kXxXk.kXxk.kXxXk",
+    "kxXxkkkXxkkkxXxk",
+    "kkkkHHHkkHHtkkkk",
+    "...kHkkHTkTtk...",
+    "...kHkLTTtkTk...",
+    "...kHkTtttkTk...",
+    "kkkkHHkkkkHtkkkk",
+    "kXxXkHTTTTtkxXxk",
+    "kxXxkuttttukXxXk",
+    ".kkk.kkkkkk.kkk.",
+    "................",
+]
+BUGGY_DOWN = [
+    "................",
+    ".kkk.kkkkkk.kkk.",
+    "kXxXkHHHHHtkxXxk",
+    "kxXxkHTTTTtkXxXk",
+    "kkkkHHkkkkHtkkkk",
+    "...kHkLTTkkTk...",
+    "...kHkTsskTtk...",
+    "...kHkTttkkTk...",
+    "kkkkHHkkkkHtkkkk",
+    "kXxXkkkXxkkkxXxk",
+    "kxXxk.kXxk.kXxXk",
+    ".kkk..kXxk..kkk.",
+    "......kXxk......",
+    "......kLLk......",
+    "......kkkk......",
+    "................",
+]
+SOLDIER_UP = [  # seen from behind, rifle up over the shoulder
+    "................",
+    "................",
+    "..........kk....",
+    ".........kXk....",
+    "......kkkXk.....",
+    ".....kHTTkk.....",
+    ".....kTTtk......",
+    "....kkDDdkk.....",
+    "....kTDDdTk.....",
+    "....kTDddTk.....",
+    ".....kTTtk......",
+    ".....kxxxk......",
+    ".....kxkxk......",
+    "....kkk.kkk.....",
+    "................",
+    "................",
+]
+SOLDIER_DOWN = [  # facing us, rifle held across
+    "................",
+    "................",
+    "................",
+    "......kkk.......",
+    ".....kHTTk......",
+    ".....kTTtk......",
+    ".....kssLk......",
+    "....kkksskkk....",
+    "...kTHTTTTTk....",
+    "...kskXXXXXkk...",
+    "....kTTTTtkxk...",
+    ".....kttk..k....",
+    ".....kxxk.......",
+    ".....kxkxk......",
+    "....kkk.kkk.....",
+    "................",
+]
+ROCKET_UP = [  # seen from behind, the launcher along the back, pointing up
+    "................",
+    ".......kkk......",
+    "......kRLRk.....",
+    "......kXLxk.....",
+    "......kXXxk.....",
+    ".....kkXXxkk....",
+    ".....kHkXkTk....",
+    "....kkTkXktkk...",
+    "....kTDkXkdTk...",
+    "....kTDkkkdTk...",
+    ".....kTTTtk.....",
+    ".....kxxxk......",
+    ".....kxkxk......",
+    "....kkk.kkk.....",
+    "................",
+    "................",
+]
+ROCKET_DOWN = [  # facing us, the launcher on the shoulder, its mouth to us
+    "................",
+    "................",
+    "................",
+    "......kkk.kkkk..",
+    ".....kHTTkkXLXk.",
+    ".....kTTtkkxRxk.",
+    ".....kssLkkXxXk.",
+    "....kkksskkkkk..",
+    "...kTHTTTTk.....",
+    "...ksTTTTtsk....",
+    "....kTTTTtk.....",
+    ".....kttk.......",
+    ".....kxxk.......",
+    ".....kxkxk......",
+    "....kkk.kkk.....",
     "................",
 ]
 
@@ -851,21 +1037,31 @@ def model_sprite(model, team, w, h, ox, oy, flip=False):
 # ------------------------------------------------------------- buildings
 
 
-def turret_model():
-    """Gun turret on a concrete base, facing right."""
+def turret_model(facing='right'):
+    """Gun turret on a concrete base, its barrel facing right, up or down
+    (left: right mirrored)."""
     m = Model()
     m.box(2, 13, 1, 12, 0, 0, 'steel')
     for x, y in ((2, 1), (13, 1), (2, 12), (13, 12)):
         m.clear(x, x, y, y, 0, 0)
     m.cyl(6.5, 6.5, 3.8, 1, 1, 'dark')                     # turning ring
     m.dome(6.5, 6.5, 3.2, 2, 1.6, 'team')
-    m.box(10, 14, 6, 6, 2, 2, 'dark')                       # barrel
-    m.box(15, 15, 6, 6, 2, 2, 'steel')
+    if facing == 'up':                                      # barrel
+        m.box(6, 6, 1, 3, 2, 2, 'dark')
+        m.box(6, 6, 0, 0, 2, 2, 'steel')
+    elif facing == 'down':
+        m.box(6, 6, 9, 13, 2, 2, 'dark')
+        m.box(6, 6, 14, 14, 2, 2, 'steel')
+    else:
+        m.box(10, 14, 6, 6, 2, 2, 'dark')
+        m.box(15, 15, 6, 6, 2, 2, 'steel')
     return m
 
 
-def turret(team, flip=False):
-    return model_sprite(turret_model(), team, 16, 16, 0, 2, flip)
+def turret(team, facing='right'):
+    oy = 3 if facing == 'up' else 2                         # (room for the barrel)
+    return model_sprite(turret_model('right' if facing == 'left' else facing), team,
+                        16, 16, 0, oy, facing == 'left')
 
 
 def hq(team):
@@ -935,16 +1131,23 @@ def pieces(img, size, dx, dy):
 def make_sprites():
     """All sprites by name. Units come in pairs: facing right, then left."""
     s = {}
-    for name, rows, team in (('tank_p', TANK, 'player'), ('tank_e', TANK, 'enemy'),
-                             ('harv_p', HARVESTER, 'player'),
-                             ('sold_p', SOLDIER, 'player'),
-                             ('sold_e', SOLDIER, 'enemy'),
-                             ('buggy_p', BUGGY, 'player'), ('buggy_e', BUGGY, 'enemy'),
-                             ('rock_p', ROCKET, 'player'), ('rock_e', ROCKET, 'enemy')):
-        s[name] = unit(rows, team)
-        s[name + '_l'] = unit(rows, team, flip=True)
-    for name, team in (('turret_e', 'enemy'), ('turret_p', 'player')):
-        s[name], s[name + '_l'] = turret(team), turret(team, flip=True)
+    views = {'tank': (TANK, TANK_UP, TANK_DOWN),
+             'harv': (HARVESTER, HARVESTER_UP, HARVESTER_DOWN),
+             'sold': (SOLDIER, SOLDIER_UP, SOLDIER_DOWN),
+             'buggy': (BUGGY, BUGGY_UP, BUGGY_DOWN),
+             'rock': (ROCKET, ROCKET_UP, ROCKET_DOWN)}
+    for name in UNIT_TYPES:                     # right, left, up, down
+        kind, side = name.split('_')
+        team = 'player' if side == 'p' else 'enemy'
+        if kind == 'turret':
+            for suffix, facing in (('', 'right'), ('_l', 'left'), ('_u', 'up'), ('_d', 'down')):
+                s[name + suffix] = turret(team, facing)
+            continue
+        right, up, down = views[kind]
+        s[name] = unit(right, team)
+        s[name + '_l'] = unit(right, team, flip=True)
+        s[name + '_u'] = unit(up, team)
+        s[name + '_d'] = unit(down, team)
     # buildings in tile-sized pieces: the starting ones on their 3x3 pads,
     # the placeable ones filling 2x2
     for name, img, size in (('hq_p', hq('player'), 3),
@@ -1176,7 +1379,7 @@ def drawn_edges(bits):
 
 UNIT_TYPES = ['tank_p', 'tank_e', 'harv_p', 'sold_p', 'sold_e', 'turret_e',
               'turret_p', 'buggy_p', 'buggy_e', 'rock_p', 'rock_e']
-SPRITE_ORDER = ([n for u in UNIT_TYPES for n in (u, u + '_l')] +
+SPRITE_ORDER = ([n for u in UNIT_TYPES for n in (u, u + '_l', u + '_u', u + '_d')] +
                 ['hq_p%d' % i for i in range(9)] +
                 ['bar_e%d' % i for i in range(9)] +
                 ['pp_p0', 'pp_p1', 'pp_p2', 'pp_p3',
@@ -1186,7 +1389,7 @@ SPRITE_ORDER = ([n for u in UNIT_TYPES for n in (u, u + '_l')] +
                 ['cur_sell', 'cur_repair', 'cur_no'])
 
 # unit flags, shared with src/main.s through gfxequ.s
-F_PLAYER, F_SEL, F_LEFT = 1, 2, 4
+F_PLAYER, F_SEL, F_LEFT, F_VERT = 1, 2, 4, 8     # (F_VERT: up; with F_LEFT down)
 F_DEAD, F_CHASE, F_STATIC, F_HARV = 0x10, 0x20, 0x40, 0x80
 F_BUILDING, F_AI, F_AMOVE, F_DIRTY = 0x100, 0x200, 0x400, 0x8000
 
@@ -1338,7 +1541,8 @@ def building_overlays(sprites):
 
 def unit_records():
     """(base sprite, tile, flags, speed, hp, range, damage, rate, power,
-    footprint, class). The sprite drawn is base + 1 when F_LEFT is set.
+    footprint, class). The sprite drawn is base + 0-3: facing right, left
+    (F_LEFT), up (F_VERT) or down (both).
     tile = row*16 + col. Buildings: footprint = top-left tile | size << 8.
     """
     recs = []
@@ -2163,7 +2367,8 @@ def first_view(path, tiles, cells, sprites, top, side):
         x = (tile % MAP_COLS - cx) * 16
         y = (tile // MAP_COLS - cy) * 16
         if 0 <= x < SIDE_X and 0 <= y < VIEW_ROWS * 16:
-            paste(screen, sprites[SPRITE_ORDER[spr + (flags & F_LEFT) // F_LEFT]], x, TOP_H + y)
+            paste(screen, sprites[SPRITE_ORDER[spr + (flags & (F_LEFT | F_VERT)) // F_LEFT]],
+                  x, TOP_H + y)
     paste(screen, sprites['cur_arrow'], *CURSOR_START)
     write_png(path, screen)
 
@@ -2268,7 +2473,7 @@ def main(outdir):
     tagno = {name: i for i, (name, _) in enumerate(tags)}
     put('sprlabel.bin', bytes(tagno.get(n, 255) for n in SPRITE_ORDER))
     labeladdr = (len(SPRITE_ORDER) + len(tiles)) * 128
-    assert labeladdr + len(tagdata) <= 0x8000
+    assert labeladdr + len(tagdata) <= 0x10000
     with open(os.path.join(outdir, 'labels.lua'), 'w') as f:
         f.write('-- generated by tools/makegfx.py: the name tags: number, offset\n')
         f.write('-- from LABELADDR in the sprite bank, bytes across\nreturn {\n')
@@ -2338,8 +2543,21 @@ def main(outdir):
     put('sight.bin', bytes(sight))
     assert all(sight_radius(f, rng) <= MAX_SIGHT
                for _, (_, f, _, _, rng, *_) in templates())
-    # the game keeps one code entry per sprite and tile (SPCODE, 256)
+    # the game keeps one code entry per sprite and tile (SPCODE, 256), and
+    # compiles them into bank 6 below the screen copier at $F000: per word
+    # of 4 pixels LDA/STA (6 bytes) when solid or a tile, LDA/AND/ORA/STA
+    # (12) when partly see-through, nothing when empty; RTL at the end
     assert len(SPRITE_ORDER) + len(tiles) <= 256
+
+    def code(img, tile=False):
+        n = 1
+        for row in img:
+            for k in range(0, 16, 4):
+                px = row[k:k + 4]
+                n += 6 if tile or all(px) else 12 if any(px) else 0
+        return n
+    compiled = sum(code(sprites[k]) for k in SPRITE_ORDER) + sum(code(t, True) for t in tiles)
+    assert compiled <= 0xF000, compiled
     put('btnmap.bin', bytes(BUTTON_ON.get(c, c) for c in range(16)))
     # the bytes a pressed button changes must not reach past its edges
     for i in range(2):
@@ -2357,7 +2575,7 @@ def main(outdir):
            'SPR_HIT': SPRITE_ORDER.index('hit'),
            'SPR_BOOM0': SPRITE_ORDER.index('boom0'),
            'SPR_BOOM1': SPRITE_ORDER.index('boom1'),
-           'F_PLAYER': F_PLAYER, 'F_SEL': F_SEL, 'F_LEFT': F_LEFT,
+           'F_PLAYER': F_PLAYER, 'F_SEL': F_SEL, 'F_LEFT': F_LEFT, 'F_VERT': F_VERT,
            'F_DEAD': F_DEAD, 'F_CHASE': F_CHASE, 'F_STATIC': F_STATIC,
            'F_HARV': F_HARV, 'F_DIRTY': F_DIRTY,
            'CREDITS0': CREDITS0, 'CREDX': CREDX, 'CAPACITY': CAPACITY,
@@ -2419,7 +2637,7 @@ def main(outdir):
     put_rle('ui.rle', pack(ui))
 
     # CONQUER.DATA: the packed screens and sprites, loaded by the game at start
-    # into the sprite bank's upper half (DATAADDR, see main.s), and the
+    # into a bank of its own (DATABANK, see main.s), and the
     # CLICK TO START line it draws on the title picture
     prompt, pinfo = title_prompt(outdir)
     data, offsets = bytearray(), {}
@@ -2432,8 +2650,8 @@ def main(outdir):
     offsets['DATA_PROMPT'] = len(data)
     data += prompt
     offsets.update(pinfo)
-    assert len(data) <= 0x8000                  # it must fit in $8000-$FFFF
-    assert (len(SPRITE_ORDER) + len(tiles)) * 128 <= 0x8000   # unpacked below
+    assert len(data) <= 0x10000                 # (a bank of its own, see main.s)
+    assert (len(SPRITE_ORDER) + len(tiles)) * 128 <= 0x8000   # (the sprite bank)
     put('conquer.data', bytes(data))
     with open(os.path.join(outdir, 'gfxequ.s'), 'a') as f:
         for k, v in offsets.items():
@@ -2464,8 +2682,8 @@ def main(outdir):
     for k, name in enumerate(['cur_sell', 'cur_repair', 'cur_no']):
         paste(look, sprites[name], SIDE_W * 2 + 8 + k * 18, 12)
     write_png(os.path.join(outdir, 'buttons.png'), look, scale=4)
-    print('%d tiles, %d sprites, %d maps, %d name tags; CONQUER.DATA %d bytes' % (
-        len(tiles), len(SPRITE_ORDER), len(MAPS), len(tags), len(data)))
+    print('%d tiles, %d sprites (%d bytes of code), %d maps, %d name tags; CONQUER.DATA '
+          '%d bytes' % (len(tiles), len(SPRITE_ORDER), compiled, len(MAPS), len(tags), len(data)))
 
 
 if __name__ == '__main__':
