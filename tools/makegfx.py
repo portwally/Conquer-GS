@@ -1705,13 +1705,27 @@ def press_button(img, i, ox=0, oy=0):
 MAP_BLOCK = [('DOCK', 2), ('EXIT', 2), ('AIEXIT', 2), ('CAMX', 2), ('CAMY', 2),
              ('MAP', MAP_COLS * MAP_ROWS), ('PASS', MAP_COLS * MAP_ROWS),
              ('ORE', MAP_COLS * MAP_ROWS), ('RADAR', RADAR_W * RADAR_H // 2),
-             ('OVER', 80), ('UNITS', 16 * 22 + 4)]
+             ('PREVIEW', RADAR_W * RADAR_H // 2), ('OVER', 80), ('UNITS', 16 * 22 + 4)]
+
+
+def preview_terrain(tiles, cells):
+    """The map's picture for the options screen: the radar's, but with the
+    enemy's base pad drawn as grass - where they are, you find out."""
+    grass = cells[next(k for k, ch in enumerate(''.join(MAP)) if ch == 'g')]
+    hidden = list(cells)
+    for name, c, r in BUILDINGS:
+        if not name.endswith('_p'):
+            for y in range(r, r + 3):
+                for x in range(c, c + 3):
+                    hidden[y * MAP_COLS + x] = grass
+    return radar_terrain(tiles, hidden)
 
 
 def map_block(tiles, cells, sprites):
     """The map in use (use_map) as its block: where harvesters unload, our
     units and the enemy's appear (tiles), the first view, the tiles, which
-    are blocked, scoops of ore in each, the radar picture, the starting
+    are blocked, scoops of ore in each, the radar picture, the options
+    screen's picture of it (without the enemy's base), the starting
     buildings' pieces (word tile, word sprite; NONE ends them) and the
     starting units (see unit_records; tile NONE ends them)."""
     def tile(p):
@@ -1723,7 +1737,8 @@ def map_block(tiles, cells, sprites):
              'PASS': bytes(1 if ch in BLOCKED else 0 for row in MAP for ch in row),
              'ORE': bytes(ORE_PER_TILE // SCOOP if ch == 'o' else 0
                           for row in MAP for ch in row),
-             'RADAR': pack(radar_terrain(tiles, cells))}
+             'RADAR': pack(radar_terrain(tiles, cells)),
+             'PREVIEW': pack(preview_terrain(tiles, cells))}
     over = bytearray()
     for t, spr in building_overlays(sprites):
         over += struct.pack('<HH', t, spr)
@@ -1752,10 +1767,11 @@ def map_checks():
         assert all(MAP[y][x] == 'c' for y in range(r, r + 3) for x in range(c, c + 3)), name
 
 # -------------------------------------------------------------- options
-# Before each game: the difficulty and the map, then START. The game
-# unpacks this screen, presses the chosen buttons (their colors through
-# BUTTON_ON, like SELL and REPAIR) and draws the map previews from the
-# maps' radar pictures, twice the size, with a dot on each base.
+# Before each game: the difficulty, the map and the music, then START.
+# The game unpacks this screen, presses the chosen buttons (their colors
+# through BUTTON_ON, like SELL and REPAIR) and draws the map previews from
+# the maps' preview pictures (the radar's without the enemy's base), twice
+# the size, with a gold dot on ours.
 
 OPT_DIFF_Y = 42                 # difficulty buttons' top
 OPT_PREV_Y = 78                 # map previews' top (inside their frames)
@@ -1823,18 +1839,18 @@ def options_screen():
 
 
 def opt_markers():
-    """Per map, a 4x4 dot on each base in its preview: (screen byte offset
-    of its top left, color byte) for ours, then theirs."""
+    """Per map, a 4x4 gold dot on our base in its preview: (screen byte
+    offset of its top left, color byte). (No dot for the enemy's.)"""
     out = []
     for i in range(len(MAPS)):
         use_map(i)
         dots = []
         for name, c, r in BUILDINGS:                # (3x3 pads: the middle)
-            x = OPT_PREV_X[i] + (c + 1) * 3 & ~1
-            y = OPT_PREV_Y + (r + 1) * 3
-            col = GOLD if name.endswith('_p') else RED
-            dots.append((y * 160 + x // 2, col * 17, x, y, col))
-        dots.sort(key=lambda d: d[4] != GOLD)
+            if name.endswith('_p'):
+                x = OPT_PREV_X[i] + (c + 1) * 3 & ~1
+                y = OPT_PREV_Y + (r + 1) * 3
+                dots.append((y * 160 + x // 2, GOLD * 17, x, y, GOLD))
+        assert len(dots) == 1
         out.append(dots)
     use_map(0)
     return out
@@ -2141,7 +2157,7 @@ def main(outdir):
     radars = []
     for i, c in enumerate(maps):
         use_map(i)
-        radars.append(radar_terrain(tiles, c))
+        radars.append(preview_terrain(tiles, c))
     use_map(0)
     # as the game should show it: at first, with HARD and the second map
     # chosen, and then the music off too (for tools/optionstest.lua)

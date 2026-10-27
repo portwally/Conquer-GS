@@ -7717,8 +7717,8 @@ optrect
          bne   :row
          rts
 
-* previews: each map's radar picture, twice the size, with a dot on each
-* base (optmark)
+* previews: each map's preview picture (the radar's without the enemy's
+* base), twice the size, with a gold dot on ours (optmark)
 previews stz   optmap
 :map     lda   optmap
          jsr   unmap
@@ -7730,13 +7730,7 @@ previews stz   optmap
          lda   optmap
          asl
          asl
-         asl
          tax
-         jsr   optdot
-         inx
-         inx
-         inx
-         inx
          jsr   optdot
          inc   optmap
          lda   optmap
@@ -7745,7 +7739,7 @@ previews stz   optmap
          rts
 prevoff  dw    PREV0OFF,PREV1OFF
 
-* preview: mapblk's radar picture, twice the size, at screen offset A
+* preview: mapblk's preview picture, twice the size, at screen offset A
 preview  clc
          adc   #$2000
          sta   dst
@@ -7755,7 +7749,7 @@ preview  clc
          lda   #RADH
          sta   ty
 :row     ldy   #0               ; byte on the screen line
-:byte    lda   mapblk+MB_RADAR,x  ; pixels pq -> bytes pp qq
+:byte    lda   mapblk+MB_PREVIEW,x  ; pixels pq -> bytes pp qq
          and   #$000F
          sta   tmp
          asl
@@ -7765,7 +7759,7 @@ preview  clc
          ora   tmp
          xba
          sta   tmp2
-         lda   mapblk+MB_RADAR,x
+         lda   mapblk+MB_PREVIEW,x
          and   #$00F0
          sta   tmp
          lsr
@@ -8457,7 +8451,7 @@ glyphs   putbin ../build/gfx/glyphs.bin
 ready    putbin ../build/gfx/ready.bin
 difftab  putbin ../build/gfx/difftab.bin ; the enemy's numbers per difficulty
 opttab   putbin ../build/gfx/opttab.bin  ; options screen: click areas, buttons
-optmark  putbin ../build/gfx/optmark.bin ;   a dot on each base in the previews
+optmark  putbin ../build/gfx/optmark.bin ;   a dot on our base in the previews
 labtab   putbin ../build/gfx/labtab.bin  ; name tags: offset, bytes across
 sprlabel putbin ../build/gfx/sprlabel.bin ;  the tag of each unit sprite
          ds    2

@@ -165,9 +165,9 @@ whose redraw of the whole view takes several frames.
 
 Before each game the options screen sets the difficulty (EASY, NORMAL -
 the first choice - or HARD), the map and the music (ON or OFF): click a
-button or a map's preview (the map's radar picture with a gold dot on
-your base and a red one on the enemy's), then START. The choices stay for
-the next game.
+button or a map's preview, then START. The choices stay for the next
+game. A preview shows the map's terrain and your base (a gold dot), but
+not the enemy's: where they are, you find out by scouting.
 
 - GREEN VALLEY: your base in the south-west, the enemy's in the north-east;
   a river from the north ends in a lake in the middle, with roads around
@@ -394,7 +394,8 @@ buildings and units, where harvesters unload, where new units appear and
 the first view. When a game starts the chosen map's block is unpacked
 into `mapblk` in the program (and its radar picture into the sidebar
 layer), so the code works on whichever map it is; the options screen
-unpacks both blocks once to draw their previews. The options screen
+unpacks both blocks once to draw their previews (each block has its own
+preview picture: the radar's without the enemy's base pad). The options screen
 itself is drawn straight onto the screen with a clean copy in bank $01
 (free before a game), the arrow saved and restored under itself.
 
