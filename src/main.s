@@ -7638,7 +7638,7 @@ opthit   ldx   #0
          rts
 
 * optbtns: draw the options screen's buttons from the clean copy, the
-* chosen difficulty's, map's and music's pressed (colors through btnmap)
+* chosen difficulty's, map's and music's lit (colors through optbtn)
 optbtns  ldx   #0
 :next    lda   opttab,x
          cmp   #NONE
@@ -7676,7 +7676,7 @@ optbtns  ldx   #0
 :rts     rts
 
 * optrect: width x ty bytes at offset X, from the work buffer to the
-* screen - through btnmap if tmp3 is nonzero
+* screen - through optbtn (lit green) if tmp3 is nonzero
 optrect
 :row     lda   width
          sta   tx
@@ -7689,7 +7689,7 @@ optrect
          pha
          and   #$0F
          tay
-         lda   btnmap,y
+         lda   optbtn,y
          sta   tmp
          pla
          lsr
@@ -7697,7 +7697,7 @@ optrect
          lsr
          lsr
          tay
-         lda   btnmap,y
+         lda   optbtn,y
          asl
          asl
          asl
@@ -8450,7 +8450,8 @@ icons    putbin ../build/gfx/icons.bin
 glyphs   putbin ../build/gfx/glyphs.bin
 ready    putbin ../build/gfx/ready.bin
 difftab  putbin ../build/gfx/difftab.bin ; the enemy's numbers per difficulty
-opttab   putbin ../build/gfx/opttab.bin  ; options screen: click areas, buttons
+opttab   putbin ../build/gfx/opttab.bin  ; options screen: click areas, buttons,
+optbtn   putbin ../build/gfx/optbtn.bin  ;   a lit button's colors
 optmark  putbin ../build/gfx/optmark.bin ;   a dot on our base in the previews
 labtab   putbin ../build/gfx/labtab.bin  ; name tags: offset, bytes across
 sprlabel putbin ../build/gfx/sprlabel.bin ;  the tag of each unit sprite

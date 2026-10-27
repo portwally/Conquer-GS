@@ -1773,66 +1773,136 @@ def map_checks():
 # the maps' preview pictures (the radar's without the enemy's base), twice
 # the size, with a gold dot on ours.
 
-OPT_DIFF_Y = 42                 # difficulty buttons' top
-OPT_PREV_Y = 78                 # map previews' top (inside their frames)
-OPT_PREV_X = (56, 168)
-OPT_NAME_Y = 156                # map name buttons' top
-OPT_START = (120, 178, 199, 192)
-OPT_BTN_H = 15
+OPT_DIFF_Y = 35                 # difficulty buttons' top
+OPT_PREV_Y = 72                 # map previews' top (inside their frames)
+OPT_PREV_X = (44, 180)
+OPT_NAME_Y = 152                # map name buttons' top
+OPT_START = (124, 172, 195, 192)
+OPT_BTN_H = 13
+# a chosen button lights up green: its colors through OPT_ON (the game's
+# optbtn table)
+OPT_ON = {STEEL_D: GRASS_D, STEEL: ORE, GRASS_L: ORE}
 
 
 def opt_button(img, x0, y0, x1, y1, txt):
+    """A gunmetal button, its label in dim green."""
     frame(img, x0, y0, x1, y1, INK)
-    rect(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, STEEL)
-    bevel(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, LIGHT, STEEL_D)
-    text(img, x0 + (x1 - x0 + 1 - text_width(txt)) // 2, y0 + (y1 - y0 - 3) // 2, txt, GOLD)
+    rect(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, STEEL_D)
+    bevel(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, STEEL, INK)
+    text(img, x0 + (x1 - x0 + 1 - text_width(txt)) // 2, y0 + (y1 - y0 - 3) // 2, txt,
+         GRASS_L)
 
 
-def press_rect(img, x0, y0, x1, y1):
+def press_rect(img, x0, y0, x1, y1, on=None):
     """A button pressed, as the game does it: both pixels of each byte
-    through BUTTON_ON."""
+    through the mapping (OPT_ON)."""
+    on = on or OPT_ON
     for y in range(y0, y1 + 1):
         for x in range(x0 & ~1, x1 + 1 | 1):
-            img[y][x] = BUTTON_ON.get(img[y][x], img[y][x])
+            img[y][x] = on.get(img[y][x], img[y][x])
+
+
+def metal_panel(img, x0, y0, x1, y1, title=None):
+    """A dark panel in a riveted gunmetal frame, its title in green."""
+    frame(img, x0, y0, x1, y1, INK)
+    bevel(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, STEEL, STEEL_D)
+    bevel(img, x0 + 2, y0 + 2, x1 - 2, y1 - 2, STEEL_D, STEEL)
+    rect(img, x0 + 3, y0 + 3, x1 - 3, y1 - 3, INK)
+    for x, y in ((x0 + 1, y0 + 1), (x1 - 2, y0 + 1), (x0 + 1, y1 - 2), (x1 - 2, y1 - 2)):
+        img[y][x] = LIGHT                       # rivets
+        img[y + 1][x + 1] = CLEAR
+    if title:
+        text(img, x0 + 7, y0 + 5, title, ORE, shadow=None)
+
+
+def hud_corners(img, x0, y0, x1, y1, c, arm):
+    """Corner brackets around a box."""
+    for x, y, dx, dy in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+        for k in range(arm):
+            img[y][x + dx * k] = c
+            img[y + dy * k][x] = c
+
+
+def logo(img, y):
+    """CONQUER GS, three times the font's size: gold shading down each
+    letter (GS in red), an ink outline, a dark shadow."""
+    word = "CONQUER GS"
+    w = sum(len(FONT[ch][0]) * 3 + 3 for ch in word) - 3
+    x0 = (SCREEN_W - w) // 2
+    layer = blank(SCREEN_W, 21)
+    x = x0
+    for i, ch in enumerate(word):
+        ramp = (SAND, GOLD, GOLD, DIRT, DIRT) if i < 7 else (LIGHT, RED, RED, RED, DIRT_D)
+        for gy, row in enumerate(FONT[ch]):
+            for gx, p in enumerate(row):
+                if p == '#':
+                    rect(layer, x + gx * 3, 2 + gy * 3, x + gx * 3 + 2, 2 + gy * 3 + 2, ramp[gy])
+        x += len(FONT[ch][0]) * 3 + 3
+    out = copy(layer)
+    for yy in range(21):
+        for xx in range(SCREEN_W):
+            if not layer[yy][xx]:
+                near = any(0 <= yy + dy < 21 and 0 <= xx + dx < SCREEN_W and layer[yy + dy][xx + dx]
+                           for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                if near:
+                    out[yy][xx] = INK
+                elif yy >= 2 and xx >= 2 and layer[yy - 2][xx - 2]:
+                    out[yy][xx] = DIRT_D        # shadow
+    paste(img, out, 0, y)
+    return x0, x0 + w - 1
 
 
 def options_screen():
     """The screen and its click areas: (x0, y0, x1, y1, action, pressable)
     with action 0-2 a difficulty, 16 + i map i, 32 START, 48 music on, 49
     music off."""
-    img = blank(SCREEN_W, SCREEN_H, INK)
-    title = "CONQUER GS"
-    text2x(img, (SCREEN_W - (len(title) * 8 - 2)) // 2, 8, title, GOLD)
-    rect(img, 40, 25, 279, 25, STEEL_D)
-
-    def label(y, txt):
-        text(img, (SCREEN_W - text_width(txt)) // 2, y, txt, LIGHT)
+    img = blank(SCREEN_W, SCREEN_H, CLEAR)
+    for y in range(0, SCREEN_H, 2):             # scanlines
+        rect(img, 0, y, SCREEN_W - 1, y, INK)
+    hud_corners(img, 2, 2, SCREEN_W - 3, SCREEN_H - 3, GRASS, 12)
+    lx0, lx1 = logo(img, 2)
+    rect(img, lx0, 23, lx1, 23, RED)             # a red rule under it
+    sub = "MISSION SETUP"
+    sx = (SCREEN_W - text_width(sub)) // 2
+    text(img, sx, 25, sub, ORE, shadow=None)
+    for x0, x1 in ((24, sx - 6), (sx + text_width(sub) + 5, SCREEN_W - 25)):
+        rect(img, x0, 27, x1, 27, GRASS_D)
     areas = []
-    label(32, "DIFFICULTY")
+    # difficulty: a panel with the three buttons
+    metal_panel(img, 16, 31, 303, 51)
+    text(img, 24, OPT_DIFF_Y + 4, "DIFFICULTY", ORE, shadow=None)
     for i, (name, *_) in enumerate(DIFFICULTIES):
-        x0 = 62 + i * 68
+        x0 = 100 + i * 66
         opt_button(img, x0, OPT_DIFF_Y, x0 + 59, OPT_DIFF_Y + OPT_BTN_H - 1, name)
         areas.append((x0, OPT_DIFF_Y, x0 + 59, OPT_DIFF_Y + OPT_BTN_H - 1, i, 1))
-    label(68, "MAP")
+    # the battlefield: the two maps in frames, their names below
+    metal_panel(img, 16, 54, 303, 168, "BATTLEFIELD")
     for i, m in enumerate(MAPS):
-        x0 = OPT_PREV_X[i]
-        frame(img, x0 - 2, OPT_PREV_Y - 2, x0 + 97, OPT_PREV_Y + 73, STEEL)
-        frame(img, x0 - 1, OPT_PREV_Y - 1, x0 + 96, OPT_PREV_Y + 72, STEEL_D)
-        rect(img, x0, OPT_PREV_Y, x0 + 95, OPT_PREV_Y + 71, CLEAR)
-        areas.append((x0, OPT_PREV_Y, x0 + 95, OPT_PREV_Y + 71, 16 + i, 0))
+        x0, y0 = OPT_PREV_X[i], OPT_PREV_Y
+        frame(img, x0 - 3, y0 - 3, x0 + 98, y0 + 74, INK)
+        bevel(img, x0 - 2, y0 - 2, x0 + 97, y0 + 73, STEEL, STEEL_D)
+        frame(img, x0 - 1, y0 - 1, x0 + 96, y0 + 72, INK)
+        rect(img, x0, y0, x0 + 95, y0 + 71, CLEAR)
+        hud_corners(img, x0 - 6, y0 - 6, x0 + 101, y0 + 77, ORE, 5)
+        areas.append((x0, y0, x0 + 95, y0 + 71, 16 + i, 0))
         opt_button(img, x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, m['name'])
         areas.append((x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, 16 + i, 1))
-    y0, y1 = OPT_START[1], OPT_START[3]
-    text(img, 10, y0 + (y1 - y0 - 3) // 2, "MUSIC", LIGHT)
-    for k, (x0, x1, txt) in enumerate(((34, 59, "ON"), (62, 91, "OFF"))):
-        opt_button(img, x0, y0, x1, y1, txt)
-        areas.append((x0, y0, x1, y1, 48 + k, 1))
-    note = "\u00a9 2026 WALTER TENGLER"
-    text(img, SCREEN_W - 4 - text_width(note), SCREEN_H - 8, note, STEEL, shadow=None)
-    x0, y0, x1, y1 = OPT_START
-    opt_button(img, x0, y0, x1, y1, "START")
-    press_rect(img, x0, y0, x1, y1)                 # always lit
+    # the bottom: music on or off, START, the copyright
+    by0 = 176
+    text(img, 20, by0 + 4, "MUSIC", ORE, shadow=None)
+    for k, (x0, x1, txt) in enumerate(((44, 69, "ON"), (72, 101, "OFF"))):
+        opt_button(img, x0, by0, x1, by0 + OPT_BTN_H - 1, txt)
+        areas.append((x0, by0, x1, by0 + OPT_BTN_H - 1, 48 + k, 1))
+    x0, y0, x1, y1 = OPT_START                  # a big red launch button
+    frame(img, x0, y0, x1, y1, INK)
+    rect(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, RED)
+    bevel(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, SAND, DIRT_D)
+    bevel(img, x0 + 2, y0 + 2, x1 - 2, y1 - 2, RED, DIRT_D)
+    text2x(img, x0 + (x1 - x0 + 1 - (5 * 8 - 2)) // 2, y0 + 6, "START", LIGHT)
+    hud_corners(img, x0 - 3, y0 - 3, x1 + 3, y1 + 3, GOLD, 4)
     areas.append((x0, y0, x1, y1, 32, 0))
+    note = "© 2026 WALTER TENGLER"
+    text(img, SCREEN_W - 6 - text_width(note), SCREEN_H - 9, note, STEEL, shadow=None)
     for x0, y0, x1, y1, act, press in areas:
         assert x0 % 2 == 0 and x1 % 2 == 1
     return img, areas
@@ -2151,6 +2221,7 @@ def main(outdir):
                            (x1 - x0 + 1) // 2 if press else 0, y1 - y0 + 1)
     tab += struct.pack('<H', 0xFFFF)
     put('opttab.bin', bytes(tab))
+    put('optbtn.bin', bytes(OPT_ON.get(c, c) for c in range(16)))
     markers = opt_markers()
     put('optmark.bin', b''.join(struct.pack('<2H', off, cb) for dots in markers
                                 for off, cb, *_ in dots))

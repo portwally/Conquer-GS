@@ -163,9 +163,12 @@ whose redraw of the whole view takes several frames.
 
 ## Options and maps
 
-Before each game the options screen sets the difficulty (EASY, NORMAL -
-the first choice - or HARD), the map and the music (ON or OFF): click a
-button or a map's preview, then START. The choices stay for the next
+Before each game the options screen - a mission setup in the style of a
+tactical display: the CONQUER GS logo, riveted gunmetal panels, green
+headings and corner brackets, scanlines - sets the difficulty (EASY,
+NORMAL - the first choice - or HARD), the map and the music (ON or OFF):
+click a button (the chosen ones light up green) or a map's preview, then
+the red START button. The choices stay for the next
 game. A preview shows the map's terrain and your base (a gold dot), but
 not the enemy's: where they are, you find out by scouting.
 
