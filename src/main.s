@@ -4162,8 +4162,9 @@ prodq    lda   qicon,x
          jmp   drawready
 :unit    sty   spawnt
          lda   exittile         ; units roll out of the building they
-         sta   spawnat          ;   need (by the command center if it
-         ldy   qicon,x          ;   is gone meanwhile)
+         sta   spawnat          ;   need - harvesters, needing none, by
+         ldy   qicon,x          ;   the command center (so do the others
+                                ;   if their building is gone meanwhile)
          lda   icons+12,y
          bmi   :out
          jsr   findbld

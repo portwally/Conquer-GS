@@ -1753,13 +1753,14 @@ AI_BUILDS = ['sold_e', 'rock_e', 'tank_e', 'sold_e', 'buggy_e', 'rock_e']  # rep
 H_IDLE, H_SEEK, H_GOTO, H_MINE, H_HOME, H_UNLOAD = range(6)
 
 # sidebar build icons, three across, top to bottom. Structures and units
-# build in two separate queues; soldiers need a barracks, vehicles a war
-# factory (and come out of it), and a war factory needs a barracks; so do
-# the enemy's.
+# build in two separate queues; soldiers need a barracks, tanks and
+# buggies a war factory (and come out of it), and a war factory needs a
+# barracks; so do the enemy's. Harvesters need nothing: they come from
+# the command center.
 ICON_UNITS = ['pp_p', 'bar_p', 'ref_p', 'fact_p', 'radar_p', 'turret_p', 'tower_p',
               'harv_p', 'tank_p', 'buggy_p', 'sold_p', 'rock_p']
 NEEDS = {'fact_p': 'bar_p',
-         'sold_p': 'bar_p', 'rock_p': 'bar_p', 'harv_p': 'fact_p', 'tank_p': 'fact_p',
+         'sold_p': 'bar_p', 'rock_p': 'bar_p', 'tank_p': 'fact_p',
          'buggy_p': 'fact_p', 'sold_e': 'bar_e', 'rock_e': 'bar_e', 'tank_e': 'fact_e',
          'buggy_e': 'fact_e'}
 BARSEGS = 8                     # a progress bar's segments (2 pixels each)

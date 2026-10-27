@@ -129,9 +129,10 @@ Then click START or press RETURN. Your choices are kept for the next game.
 
 ### Units
 
-Vehicles come out of a war factory, soldiers out of a barracks; without
-one, their icons are greyed out. A war factory can only be built once you
-have a barracks.
+Tanks and buggies come out of a war factory, soldiers out of a barracks;
+without one, their icons are greyed out. Harvesters need nothing: they come
+from the command center. A war factory can only be built once you have a
+barracks.
 
 | Unit | Cost | Build time | Hit points | Range | Weapon | |
 |---|---:|---:|---:|---:|---|---|
@@ -139,7 +140,7 @@ have a barracks.
 | Buggy | 300 | 5 s | 90 | 2 | machine gun, 5, rapid fire | fast; needs a war factory |
 | Soldier | 100 | 3 s | 40 | 2 | rifle, 6 | needs a barracks |
 | Rocket soldier | 300 | 5 s | 30 | 4 | rockets, 15, slow to reload | needs a barracks |
-| Harvester | 1000 | 10 s | 200 | | | mines ore; needs a war factory |
+| Harvester | 1000 | 10 s | 200 | | | mines ore; comes from the command center |
 
 ### Structures
 

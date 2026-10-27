@@ -149,9 +149,11 @@ The starting buildings come from the map like the units.
 
 A building's door is the tile below its bottom-left corner. Units come out
 by the door of the building they need (`findbld`): soldiers a barracks,
-vehicles a war factory, for both sides, and a war factory a barracks (the
-template's "needs" works for structures too); without one, its icons are
-greyed out. Our harvesters unload at a dock: the one next to the command center
+tanks and buggies a war factory, for both sides, and a war factory a
+barracks (the template's "needs" works for structures too); without one,
+its icons are greyed out. Harvesters need nothing and come out by the
+command center (the map's exit tile, where units also appear whose
+building is gone meanwhile). Our harvesters unload at a dock: the one next to the command center
 or one in front of a refinery (its door). `calcpower` keeps the list of
 docks along with the power; a harvester heads for the nearest (column plus
 row distance), and if that refinery is gone on the way, for the next. No

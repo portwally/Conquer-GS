@@ -1,5 +1,6 @@
 -- New buildings test. Ours: we start with a command center only; the war
--- factory needs a barracks, vehicles the war factory; the radar is off
+-- factory needs a barracks, tanks and buggies the war factory, harvesters
+-- nothing (they come from the command center); the radar is off
 -- (its picture says so, a click on it does nothing) until a radar center
 -- stands; a refinery comes with a harvester at its dock, a second place to
 -- unload; a guard tower stands like a turret; tanks roll out of the war
@@ -68,6 +69,7 @@ G.at(700, function()
   check(G.w(V.RADARON) == 0 and radaroff(), "the radar is off, and says so")
   check(G.w(V.ICONOK, I.fact_p.n) == 0, "the war factory greyed out (no barracks)")
   check(G.w(V.ICONOK, I.tank_p.n) == 0, "the tank greyed out (no war factory)")
+  check(G.w(V.ICONOK, I.harv_p.n) == 1, "the harvester can be built (it needs nothing)")
 end)
 build(705, 'fact_p')
 G.at(720, function() check(G.w(V.QICON) == 0xFFFF, "a click on the war factory does nothing") end)
@@ -86,8 +88,8 @@ G.quickbuild(860, I.fact_p, FACT[1], FACT[2], 2)
 G.at(910, function()
   print("-- war factory")
   check(one(E.TMPL_FACTP) ~= nil, "it stands")
-  check(G.w(V.ICONOK, I.tank_p.n) == 1 and G.w(V.ICONOK, I.harv_p.n) == 1,
-    "tanks and harvesters can be built now")
+  check(G.w(V.ICONOK, I.tank_p.n) == 1 and G.w(V.ICONOK, I.buggy_p.n) == 1,
+    "tanks and buggies can be built now")
 end)
 G.quickbuild(920, I.radar_p, RADAR[1], RADAR[2], 2)
 G.at(975, function()
@@ -160,8 +162,9 @@ G.at(1635, function() local x, y = G.unitxy(fact); G.click(1636, x, y) end)
 G.at(1660, function()
   print("-- war factory sold")
   check(not alive(fact), "it is gone")
-  check(G.w(V.ICONOK, I.tank_p.n) == 0 and G.w(V.ICONOK, I.buggy_p.n) == 0 and
-        G.w(V.ICONOK, I.harv_p.n) == 0, "tank, buggy and harvester greyed out")
+  check(G.w(V.ICONOK, I.tank_p.n) == 0 and G.w(V.ICONOK, I.buggy_p.n) == 0,
+    "tank and buggy greyed out")
+  check(G.w(V.ICONOK, I.harv_p.n) == 1, "the harvester not")
 end)
 G.at(1665, function() local x, y = G.unitxy(bar); G.click(1666, x, y) end)
 G.at(1690, function()
@@ -173,6 +176,20 @@ G.at(1690, function()
 end)
 build(1710, 'tank_p')
 G.at(1730, function() check(G.w(V.QICON + 2) == 0xFFFF, "a click on the tank icon does nothing") end)
+-- a harvester, with no war factory: by the command center
+local harvsb
+G.at(1755, function() harvsb = find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end) end)
+build(1760, 'harv_p')                                     -- (10 s)
+G.at(2420, function()
+  print("-- harvester")
+  local h = find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end)
+  check(#h == #harvsb + 1, "a harvester was built")
+  local newest = h[#h]
+  local ex = G.w(V.EXITTILE)
+  check(newest and near(G.w(V.UTILE, newest), ex % 32, ex // 32, 2),
+    string.format("by the command center's exit (at %d,%d)", newest and G.w(V.UTILE, newest) % 32 or -1,
+      newest and G.w(V.UTILE, newest) // 32 or -1))
+end)
 
 -- the harvesters: one unloads at the refinery
 G.at(1740, function()
@@ -217,18 +234,20 @@ G.at(3300, function()
   check(count(INF, 0) > 0 and wrongi == 0, "infantry out of its barracks")
   kill(V.FACTUNIT)
 end)
-local credits0
+-- income: frames in which the enemy's credits went up (what it spends,
+-- and our topping up, aside)
+local rises, lastcr, rises0 = 0, nil, nil
 G.at(5000, function()
   check(count(VEH, 3400) == 0 and count(INF, 3400) > 0, "without the factory: infantry only")
-  credits0 = G.w(V.AICREDITS)
+  rises0 = rises
 end)
 G.at(5100, function()
-  check(G.w(V.AICREDITS) > credits0, "income with its refinery")
+  check(rises > rises0, string.format("income with its refinery (%d times)", rises - rises0))
   kill(V.REFUNIT)
-  credits0 = G.w(V.AICREDITS)
+  rises0 = rises
 end)
 G.at(5300, function()
-  check(G.w(V.AICREDITS) <= credits0, "none without it")
+  check(rises == rises0, string.format("none without it (%d times)", rises - rises0))
   G.sw(V.AICREDITS, 0, 5000)                               -- (enough to go on)
 end)
 -- build speed: game frames for aitimer to go down by 20, with and without
@@ -250,7 +269,10 @@ G.run(7000, function(f)
   if f >= 700 then
     G.sw(V.AIWAIT, 0, 30000)                               -- no attack waves
     G.sw(V.AIMAX, 0, V.MAXUNITS)
-    if f < 5300 then G.sw(V.AICREDITS, 0, math.max(G.w(V.AICREDITS), 3000)) end
+    local cr = G.w(V.AICREDITS)
+    if lastcr and cr > lastcr then rises = rises + 1 end
+    if f < 5300 then G.sw(V.AICREDITS, 0, math.max(cr, 3000)) end
+    lastcr = G.w(V.AICREDITS)
     watch()
   end
   if f >= 1750 and not unloaded then                       -- at the refinery?
