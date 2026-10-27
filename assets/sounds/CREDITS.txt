@@ -1,0 +1,21 @@
+Sound recordings used in Conquer GS (all public domain, CC0 1.0:
+https://creativecommons.org/publicdomain/zero/1.0/). The other sound
+effects are synthesized by tools/makesound.py.
+
+rifle.wav  - Mosin Nagant, bolt-action rifle, single shot, mid distance
+             (file M_26P.wav, first shot)
+mgun.wav   - PPSh submachine gun, short burst, mid distance
+             (file P_18P.wav, first 0.42 s of the first burst)
+             Both from "The Free Firearm Sound Library", recorded by
+             Ben Jaszczak, Brian Nelson, Kevin Heras and Matthew Nanney.
+             https://opengameart.org/content/the-free-firearm-sound-library
+             License: CC0 ("CC0 NO RIGHTS RESERVED")
+
+cannon.wav - "cannon fire" by Thimras (cannon_fire_0.ogg, first 0.9 s)
+             https://opengameart.org/content/cannon-fire
+             License: CC0
+
+Prepared for the IIgs sound chip: mixed to mono, cut (2 ms fade-in, a
+cosine fade-out over the last 0.25 s / 0.1 s / 0.4 s), resampled to
+13,160 Hz with ffmpeg, compressed gently (|x|^0.75) and stored as 8-bit
+unsigned samples (1-255; the chip stops at a 0 byte).

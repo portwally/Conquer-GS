@@ -1,0 +1,14 @@
+# everything build.sh and the test runs make (graphics, sounds, disk
+# image, MAME recordings and screen dumps)
+build/
+
+# Merlin 32's leftovers next to the source
+src/CONQUER.SYSTEM
+src/*_Output.txt
+src/*_Symbols.txt
+src/_FileInformation.txt
+src/error_output.txt
+
+# macOS and local settings
+.DS_Store
+.claude/settings.local.json
