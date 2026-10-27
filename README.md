@@ -30,6 +30,7 @@ so on the text screen and stops.
   edge of the screen, or click the radar to center the view there.
 - The radar shows the whole world: your units and buildings in gold, the
   enemy's in red, and a white frame around the part you are looking at.
+- M turns the music off or on.
 - Rest the mouse on a unit or a building for a moment and its name shows
   below the arrow (yours in gold, the enemy's in red); on a build icon, its
   name and price.
@@ -114,41 +115,59 @@ holds them prepared for the chip, with the details in
 as a WAV file to `build/gfx/sounds/` to listen to.
 
 How it works: CONQUER.SOUND is an image of the chip's 64K sound RAM (50K
-used, with the title music's instruments: a sample only has to start on a multiple of its table size, so the
+used, with the music's instruments: a sample only has to start on a multiple of its table size, so the
 smaller ones fill the ends of the bigger ones' tables), streamed into it at
-start. Each sound has four of the chip's 32
-oscillators set up once - two voices, each on the left and the right
-channel - playing its 13,160 Hz sample once ("one-shot": it stops at the
-sample's 0 byte). Events during a frame set a bit per sound; at the end of
-the frame each requested sound restarts the other of its two voices, so a
-second shot right after the first doesn't cut it off.
+start. The chip has 32 oscillators: 0-9 play the music, the rest the
+sound effects. Each voice of a sound is two of them (the left and the
+right channel), set up once to play its 13,160 Hz sample once
+("one-shot": it stops at the sample's 0 byte). The cannon, rifle, machine
+gun and rockets have two voices each, the explosion, chime and thud one.
+Events during a frame set a bit per sound; at the end of the frame each
+requested sound restarts its voice - with two, the other one than last
+time, so a second shot right after the first doesn't cut it off.
 
-### Title music
+### Music
 
-The title screen plays a short original loop on the same chip: 8 bars in
-E minor at about 128 beats a minute (15 seconds a loop) with a bass, a
-lead melody, an arpeggio, kick and snare, and a hi-hat. It stops when you
-click to start, and the sound effects take the chip back.
+Two original loops play on the same chip, with the sound effects on top:
+the title tune (8 bars in E minor at about 128 beats a minute, 15 seconds
+a loop) on the title and options screens, and the battle tune during a
+game: 16 bars in A minor at 150 beats a minute (26 seconds a loop) with a
+galloping sixteenth-note bass, a riff that climbs through two eight-bar
+halves, a sixteenth-note arpeggio, syncopated kicks with snare fills and
+sixteenth-note hi-hats - mixed under the sound effects (about a quarter as
+loud as the title tune). Each has a bass, a melody, an arpeggio, kick and
+snare, and a hi-hat. MUSIC
+ON / OFF on the options screen turns both off or on (the choice stays for
+the next game), and so does the M key during a game.
 
-`tools/makemusic.py` holds the score and the instruments. The bass, lead
+`tools/makemusic.py` holds the scores and the instruments. The bass, lead
 and arpeggio are each one 256-byte waveform cycle the chip loops
 ("free-run"), on two oscillators (left and right); the player sets their
 pitch through the frequency register and shapes every note with a volume
-envelope, once a video frame. The drums are short one-shot samples on four
-more oscillators. The score is a step sequence (16 steps a bar, 7 frames a
-step): one byte per voice per step (nothing, a note, or note off). The
-script writes the steps, the frequency table and the envelope equates
-for the program (`build/gfx/music.bin`, `musfreq.bin`, `musequ.s`) and
-`build/gfx/music_preview.wav`, the loop rendered as the chip and the
-player make it. `tools/makesound.py` packs the instruments into
-CONQUER.SOUND with the effects.
+envelope, once a video frame (writing a volume only when it changes). The
+drums are short one-shot samples on four more oscillators. A score is a
+step sequence (16 steps a bar, 7 or 6 frames a step): one byte per voice
+per step (nothing, a note, or note off). The script writes both tunes'
+steps, the frequency table they share and each tune's numbers - tempo,
+length, envelopes, drum volumes, waves - for the program
+(`build/gfx/music.bin`, `musfreq.bin`, `mustracks.bin`) and
+`build/gfx/music_preview.wav` and `battle_preview.wav`, the loops rendered
+as the chip and the player make them. `tools/makesound.py` packs the
+instruments into CONQUER.SOUND with the effects. In a game the tune keeps
+time by its own clock: whenever the screen's line counter (VERTCNT) has
+started over since it last looked, a video frame has passed and the tune
+moves a frame on. It looks before and after each wait for the blank and
+inside the long loops (every 8 cells redrawn, every 16 units, between the
+parts of the full-view copy), so it keeps the beat even through a scroll,
+whose redraw of the whole view takes several frames.
 
 ## Options and maps
 
 Before each game the options screen sets the difficulty (EASY, NORMAL -
-the first choice - or HARD) and the map: click a button or a map's
-preview (the map's radar picture with a gold dot on your base and a red
-one on the enemy's), then START. The choices stay for the next game.
+the first choice - or HARD), the map and the music (ON or OFF): click a
+button or a map's preview (the map's radar picture with a gold dot on
+your base and a red one on the enemy's), then START. The choices stay for
+the next game.
 
 - GREEN VALLEY: your base in the south-west, the enemy's in the north-east;
   a river from the north ends in a lake in the middle, with roads around
@@ -272,7 +291,8 @@ whenever it comes up (OPTWAIT; `SHOWOPTIONS=1` keeps it), so the game
 always starts at frame 660 however long loading takes. It chooses the
 difficulty and the map from `DIFFICULTY` (0-2, default 2: HARD, how the
 enemy played before there was a choice, so the tests keep their meaning)
-and `MAP` (0 or 1, default 0), e.g.
+and `MAP` (0 or 1, default 0), and turns the music off unless `MUSIC=1`
+(so the sound tests hear only the effects), e.g.
 `DIFFICULTY=1 MAP=1 ./run.sh ... -autoboot_script tools/aitest.lua`.
 `tools/titletest.lua` checks the title instead: the screen must match
 `build/gfx/title_expected.bin` (the picture with CLICK TO START, made by
@@ -280,7 +300,9 @@ and `MAP` (0 or 1, default 0), e.g.
 follow (`-seconds_to_run 200`). `tools/optionstest.lua` checks that screen:
 it must match `build/gfx/options_expected.bin` (but under the arrow);
 clicking HARD and the second map's preview must press those buttons as in
-`options_expected2.bin`; START must begin a game on that map at HARD; after
+`options_expected2.bin`; music OFF must stop the title tune and press its
+button (`options_expected3.bin`); START must begin a game on that map at
+HARD, without music; after
 the game ends a click must bring the options back with the same choices,
 and RETURN must start the next game (`-seconds_to_run 120`).
 `tools/labeltest.lua` rests the mouse on one of our tanks, the command
@@ -302,15 +324,26 @@ sound chip during play: a fight on screen must be heard, one off screen
 not, and building must chime and thud (`-seconds_to_run 150`).
 
 `tools/musictest.lua` stays at the title for 32 seconds of music, clicks,
-goes through the options screen (the music plays on there) and asks the
-game for a sound effect a second after it starts; run it with
+goes through the options screen (the title tune plays on there), lets the
+battle tune play 45 seconds in the game, presses M, asks for a sound
+effect and presses M again; run it with
 `-wavwrite build/mame/music.wav -seconds_to_run 300`, keep its output in
 `build/mame/music.log`, then
 `python3 tools/musiccheck.py build/mame/music.wav build/mame/music.log`
-compares the recording with `tools/makemusic.py`'s rendering: the same
-loudness over time, a repeat every 14.93 seconds, each bar's bass on its
-chord's root, both channels, silence once the game runs, and the sound
-effect after it.
+compares the recording with `tools/makemusic.py`'s rendering of each tune:
+each bar as loud as in the render, the same again a loop later, each
+bar's bass on its chord's root, both channels; the battle tune quieter
+than the title's (about a quarter as loud); silence after M, the sound
+effect heard, and the music back after M again. The test also logs every
+write the game makes to the music's oscillators in the game
+(`build/mame/musicwrites.txt`): every note of the battle tune must reach
+the chip on its step's frame, at its frequency on both sides, and every
+frame's volumes must be the render's.
+
+`tools/tempotest.lua` (run with `MUSIC=1`, `-seconds_to_run 200`) counts
+how far the battle tune moves against video frames: standing still,
+scrolling the view back and forth, and with every unit of ours sent across
+the map; each must keep at least 97% of the beat (they keep 99.8-100%).
 
 `tools/econtest.lua` watches the harvester for a few minutes of game time and
 builds a tank, printing credits and harvester state as they change:
@@ -380,10 +413,10 @@ the work buffer, and only those cells are copied to the screen. Effects only
 dirty their cells when they appear, change or vanish.
 
 Scrolling moves the view one tile at a time: all 192 cells of the view are
-redrawn and the view is copied to the screen in one go, with the stack
-pointer walking the screen rows and `PEI` pushing 64 words per row (bank 0
-is mapped onto the work buffer in bank 1 for the copy). A scroll step takes
-about 12 frames.
+redrawn and the view is copied to the screen in six parts of 32 lines (so
+the music can keep time in between), with the stack pointer walking the
+screen rows and `PEI` pushing 64 words per row (bank 0 is mapped onto the
+work buffer in bank 1 for the copy). A scroll step takes about 12 frames.
 
 The radar is drawn once in full after the view moves. After that, every 32
 frames it redraws only dots whose unit moved, appeared or died (a few per
@@ -435,8 +468,8 @@ The game runs at 60 fps in normal play (the benchmark's slowest 5 seconds:
 60 fps). In `tools/stress.lua` with `STRESS_ALL=1` (immortal units
 fighting, the enemy filling the unit table, the whole player army
 re-ordered every 4 seconds, exploring as it goes) and `STRESS_END=18000`
-(so the table fills: 46-48 units), the worst 5-second stretch is 54 fps
-and the run averages 58.6. The name tags cost about 1 fps of that average
+(so the table fills: 46-48 units), the worst 5-second stretch is 51-55
+fps and the run averages 58.5, with the music on or off. The name tags cost about 1 fps of that average
 here (the mouse rests where the crowd fights, so a tag is often showing);
 without them it is 59.4 and 56. (These runs are exactly repeatable, but a
 small change in timing anywhere changes what the units do, so their worst

@@ -1,10 +1,12 @@
 -- Options screen test (counts raw video frames; skips the title): the
 -- options screen must look exactly like build/gfx/options_expected.bin
--- (but under the arrow); clicking HARD and the second map's preview must
--- press those buttons as in options_expected2.bin; START must begin a
--- game on that map at that difficulty. Then the game is ended: a click
--- must bring the options back with the same choices, and RETURN must
--- start the next game.
+-- (but under the arrow), the title tune playing; clicking HARD and the
+-- second map's preview must press those buttons as in
+-- options_expected2.bin; clicking music OFF must stop the tune and press
+-- that button (options_expected3.bin); START must begin a game on that map
+-- at that difficulty, without music. Then the game is ended: a click must
+-- bring the options back with the same choices, and RETURN must start the
+-- next game.
 local V = dofile("tools/vars.lua")
 local O = dofile("build/gfx/options.lua")
 local mem = manager.machine.devices[":maincpu"].spaces["program"]
@@ -12,6 +14,7 @@ local btn = manager.machine.ioport.ports[":macadb:MOUSE0"].fields["Mouse Button 
 local function load(name) local fh = io.open(name, "rb"); local d = fh:read("a"); fh:close(); return d end
 local want1 = load("build/gfx/options_expected.bin")
 local want2 = load("build/gfx/options_expected2.bin")
+local want3 = load("build/gfx/options_expected3.bin")
 local f, problems, phase, t0 = 0, 0, "title", 0
 
 -- screen bytes that differ from want, leaving out the arrow's square
@@ -61,16 +64,31 @@ sub = emu.add_machine_frame_notifier(function()
       print("options screen at frame " .. f)
       click(t0 + 12, area(2))                  -- HARD
       click(t0 + 30, area(17, 0))              -- the second map's preview
-      click(t0 + 52, area(32))                 -- START
+      click(t0 + 52, area(49))                 -- music OFF
+      click(t0 + 74, area(32))                 -- START
     end
   elseif phase == "options" then
-    if f == t0 + 10 then check("at first (NORMAL, GREEN VALLEY):", want1); dump("o0_options") end
+    if f == t0 + 10 then
+      check("at first (NORMAL, GREEN VALLEY):", want1); dump("o0_options")
+      local on = mem:read_u16(V.MUSICON) == 1
+      print("  the title tune playing: " .. (on and "yes" or "NO"))
+      if not on then problems = problems + 1 end
+    end
     if f == t0 + 48 then check("HARD and RIVER CROSSING pressed:", want2); dump("o1_chosen") end
+    if f == t0 + 70 then
+      check("music OFF pressed:", want3)
+      local off = mem:read_u16(V.MUSICON) == 0 and mem:read_u16(V.MUSICOFF) == 1
+      print("  the tune stopped: " .. (off and "yes" or "NO"))
+      if not off then problems = problems + 1 end
+    end
     if mem:read_u16(V.GAMEGO) == 0xC0DE then
       local dock, aimax = mem:read_u16(V.DOCK), mem:read_u16(V.AIMAX)
       local ok = dock == 18 * 32 + 25 and aimax == 8 and mem:read_u16(V.DIFF) == 2
       print(string.format("game started %d frames after START: dock tile %d, enemy at most %d units: %s",
-        f - (t0 + 55), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
+        f - (t0 + 77), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
+      local quiet = mem:read_u16(V.MUSICON) == 0
+      print("  no battle tune (music off): " .. (quiet and "yes" or "NO"))
+      if not quiet then problems = problems + 1 end
       phase, t0 = "game", f
       if not ok then problems = problems + 1 end
     end
@@ -86,7 +104,7 @@ sub = emu.add_machine_frame_notifier(function()
     end
     if f == t0 + 400 then print("no options screen after the end"); problems = problems + 1; phase = "done" end
   elseif phase == "again" then
-    if f == t0 + 10 then check("the same choices:", want2) end
+    if f == t0 + 10 then check("the same choices:", want3) end
     if f == t0 + 12 then
       local ok = pcall(function() manager.machine.natkeyboard:post("\r") end)
       print("RETURN pressed" .. (ok and "" or " (could not post it)"))

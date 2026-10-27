@@ -1782,7 +1782,8 @@ def press_rect(img, x0, y0, x1, y1):
 
 def options_screen():
     """The screen and its click areas: (x0, y0, x1, y1, action, pressable)
-    with action 0-2 a difficulty, 16 + i map i, 32 START."""
+    with action 0-2 a difficulty, 16 + i map i, 32 START, 48 music on, 49
+    music off."""
     img = blank(SCREEN_W, SCREEN_H, INK)
     title = "CONQUER GS"
     text2x(img, (SCREEN_W - (len(title) * 8 - 2)) // 2, 8, title, GOLD)
@@ -1805,6 +1806,11 @@ def options_screen():
         areas.append((x0, OPT_PREV_Y, x0 + 95, OPT_PREV_Y + 71, 16 + i, 0))
         opt_button(img, x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, m['name'])
         areas.append((x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, 16 + i, 1))
+    y0, y1 = OPT_START[1], OPT_START[3]
+    text(img, 10, y0 + (y1 - y0 - 3) // 2, "MUSIC", LIGHT)
+    for k, (x0, x1, txt) in enumerate(((34, 59, "ON"), (62, 91, "OFF"))):
+        opt_button(img, x0, y0, x1, y1, txt)
+        areas.append((x0, y0, x1, y1, 48 + k, 1))
     note = "\u00a9 2026 WALTER TENGLER"
     text(img, SCREEN_W - 4 - text_width(note), SCREEN_H - 8, note, STEEL, shadow=None)
     x0, y0, x1, y1 = OPT_START
@@ -1834,7 +1840,7 @@ def opt_markers():
     return out
 
 
-def options_expected(img, maps_radar, markers, diff, mapno):
+def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0):
     """The options screen as the game shows it (no cursor)."""
     out = copy(img)
     for i, radar in enumerate(maps_radar):
@@ -1845,7 +1851,7 @@ def options_expected(img, maps_radar, markers, diff, mapno):
             rect(out, x, y, x + 3, y + 3, col)
     _, areas = options_screen()
     for x0, y0, x1, y1, act, press in areas:
-        if press and act in (diff, 16 + mapno):
+        if press and act in (diff, 16 + mapno, 48 + musicoff):
             press_rect(out, x0, y0, x1, y1)
     return out
 
@@ -2137,11 +2143,13 @@ def main(outdir):
         use_map(i)
         radars.append(radar_terrain(tiles, c))
     use_map(0)
-    # as the game should show it: at first, and with HARD and the second
-    # map chosen (for tools/optionstest.lua)
-    for name, diff, mapno in (('options_expected.bin', DIFF0, 0),
-                              ('options_expected2.bin', len(DIFFICULTIES) - 1, 1)):
-        expect = options_expected(opts, radars, markers, diff, mapno)
+    # as the game should show it: at first, with HARD and the second map
+    # chosen, and then the music off too (for tools/optionstest.lua)
+    hard = len(DIFFICULTIES) - 1
+    for name, diff, mapno, off in (('options_expected.bin', DIFF0, 0, 0),
+                                   ('options_expected2.bin', hard, 1, 0),
+                                   ('options_expected3.bin', hard, 1, 1)):
+        expect = options_expected(opts, radars, markers, diff, mapno, off)
         if mapno == 0:
             write_png(os.path.join(outdir, 'options_preview.png'), expect)
         shr = bytearray(pack(expect)) + bytes(0x7E00 - 32000)

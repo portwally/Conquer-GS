@@ -8,13 +8,18 @@ local V = G.V
 local mem = G.mem
 local I = dofile("build/gfx/icons.lua")
 local names = {"cannon", "rifle", "mgun", "rocket", "boom", "ready", "place"}
+local oscsound = {}             -- each sound's oscillators (makesound.py)
+for _, n in ipairs(names) do
+  local first, voices = V["SOSC_" .. n:upper()], V["SVOX_" .. n:upper()]
+  for o = first, first + 2 * voices - 1 do oscsound[o] = n end
+end
 local adr, log, window = 0, {}, nil
 local problems = 0
 local function check(ok, msg) if not ok then problems = problems + 1; print("  PROBLEM: " .. msg) end end
 tap = mem:install_write_tap(0xC03C, 0xC03F, "snd", function(offset, data)
   if offset == 0xC03E then adr = data & 0xFF
   elseif offset == 0xC03D and adr >= 0xA0 and adr <= 0xBF and data & 1 == 0 and data & 0x10 == 0 then
-    local snd = names[((adr - 0xA0) >> 2) + 1] or "?"
+    local snd = oscsound[adr - 0xA0] or "music"
     if window then log[window][snd] = (log[window][snd] or 0) + 1 end
   end
 end)

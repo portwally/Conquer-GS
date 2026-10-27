@@ -181,10 +181,9 @@ sndreq   equ   looky+$2         ; sounds to start this frame (SND_ bits)
 svoice   equ   sndreq+$2        ; sounds: per sound, its voice last used
 sreq     equ   svoice+$2        ;   (scratch: bits left, this sound's
 sbit     equ   sreq+$2          ;   bit, its oscillator; initsound: the
-so       equ   sbit+$2          ;   sound's first oscillator, which of
-sosc     equ   so+$2            ;   its four)
-sk       equ   sosc+$2
-mvol     equ   sk+$2            ; title music: per tone voice (words):
+so       equ   sbit+$2          ;   oscillator, how many are left)
+sk       equ   so+$2
+mvol     equ   sk+$2            ; music: per tone voice (words):
 mmode    equ   mvol+$6          ;   its volume, and 0 silent, 1 note
 mtick    equ   mmode+$6         ;   decaying, 2 note fading out; frames
 mstep    equ   mtick+$2         ;   into the step, the step,
@@ -253,7 +252,7 @@ uclass   equ   iconok+$10       ; per unit: armor class (bits 0-1:
 curbuf   equ   uclass+UTAB      ; options: what the cursor covers (16
 curaddr  equ   curbuf+$80       ;   lines of 8 bytes) and where
 optmap   equ   curaddr+$2       ;   the map whose preview is drawn
-musicon  equ   optmap+$2        ; the title music is playing
+musicon  equ   optmap+$2        ; a tune is playing
 aiincome equ   musicon+$2       ; the enemy at this difficulty: credits
 aigap    equ   aiincome+$2      ;   every 8 frames, frames between
 aiwave0  equ   aigap+$2         ;   waves, units in the first wave and
@@ -266,7 +265,12 @@ lbly     equ   lblx+$2          ;   mouse when it last looked
 lblw     equ   lbly+$2
 lblmx    equ   lblw+$2
 lblmy    equ   lblmx+$2
-VARSEND  equ   lblmy+$2
+mtr      equ   lblmy+$2         ; music: the tune's numbers (see MT_)
+mlast    equ   mtr+MTRSZ        ;   per tone voice: volume last written
+mvc      equ   mlast+$6         ;   VERTCNT when musictick last looked
+slamfrom equ   mvc+$2           ; slam: the first line's address, and
+slamrows equ   slamfrom+$2      ;   how many lines
+VARSEND  equ   slamrows+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -277,8 +281,9 @@ TITLEWAIT equ  $BE00            ; nonzero: the title is up, waiting (a
 GAMEGO   equ   $BE02            ; $C0DE once the game runs
 OPTWAIT  equ   $BE04            ; nonzero: the options screen is up (a
                                 ;   test script clears it to start)
-DIFF     equ   $BE06            ; the difficulty chosen (0-2) and the map
-MAPNO    equ   $BE08            ;   (0-1): kept from game to game
+DIFF     equ   $BE06            ; the difficulty chosen (0-2), the map
+MAPNO    equ   $BE08            ;   (0-1) and whether the music is off
+MUSICOFF equ   $BE0A            ;   (0-1): kept from game to game
 
 *--- fog of war, in bank 1 above the work buffer
 
@@ -451,6 +456,8 @@ main     sei                    ; no interrupts: we own the machine
          stz   DIFF+1
          stz   MAPNO
          stz   MAPNO+1
+         stz   MUSICOFF
+         stz   MUSICOFF+1
          lda   NEWVIDEO
          ora   #$40             ; linear SHR memory: must be set before
          sta   NEWVIDEO         ; writing to $E1/2000, or bytes land
@@ -597,13 +604,21 @@ restart  lda   #0               ; clear our variables
          sta   NEWVIDEO
          rep   #$20
          mx    %00
-         lda   #$C0DE           ; (test scripts: the game runs)
+         lda   MUSICOFF         ; the battle tune
+         bne   :quiet
+         lda   #TUNE_BATTLE
+         jsr   musstart
+         lda   #1
+         sta   musicon
+:quiet   lda   #$C0DE           ; (test scripts: the game runs)
          sta   GAMEGO
 
 *-------------------------------------------------------------------
 * main loop, once per video frame
 
-mainloop jsr   waitvbl
+mainloop jsr   musictick        ; (the music keeps time: see musictick)
+         jsr   waitvbl
+         jsr   musictick
          jsr   readmouse
          lda   seeallf          ; (test scripts: everything seen)
          beq   :look
@@ -1307,7 +1322,11 @@ clamp    ora   #0
 
 units    inc   frame
          ldx   #0
-:loop    cpx   nunits
+:loop    txa                    ; (every 16 units the music's clock)
+         and   #$001F
+         bne   :clk
+         jsr   musictick
+:clk     cpx   nunits
          bcc   :one
          rts
 :one     lda   uflags,x
@@ -2328,7 +2347,11 @@ render   stz   fullview
          inc   fullview
          jsr   markview
 :units   ldx   #0               ; units that moved or changed look
-:uloop   cpx   nunits
+:uloop   txa                    ; (every 16 units the music's clock)
+         and   #$001F
+         bne   :clk
+         jsr   musictick
+:clk     cpx   nunits
          bcc   :unit
          jmp   :fx
 :unit    lda   fullview         ; (standing still, nothing changed, the
@@ -2452,7 +2475,11 @@ render   stz   fullview
 
 :draw    jsr   restorecells
          ldx   #0               ; units touching dirty cells
-:d1      cpx   nunits
+:d1      txa                    ; (a full view: many units; every 16
+         and   #$001F           ;   the music's clock)
+         bne   :clk2
+         jsr   musictick
+:clk2    cpx   nunits
          bcs   :fxdraw
          lda   uox,x            ; (off screen or dead: not drawn)
          cmp   #OFFVIEW
@@ -2504,7 +2531,7 @@ render   stz   fullview
          plx
 :d2      inx
          inx
-         bra   :d1
+         jmp   :d1
 
 :fxdraw  ldx   #0
 :f1      lda   fxtime,x
@@ -2541,9 +2568,23 @@ render   stz   fullview
          lda   cshape
          jsr   drawspr
          jsr   copycells
-         lda   fullview         ; the whole view: one fast copy
-         beq   :next
+         lda   fullview         ; the whole view: fast copies, SLAMROWS
+         beq   :next            ; lines at a time (the music looks at
+         lda   #$2000+{TOPH*LINE}  ; its clock in between)
+         sta   slamfrom
+         lda   #SLAMROWS
+         sta   slamrows
+:slam    jsr   musictick
          jsl   SLAMADDR
+         phk                    ; (data bank 0)
+         plb
+         lda   slamfrom
+         clc
+         adc   #SLAMROWS*LINE
+         sta   slamfrom
+         cmp   #$2000+{200*LINE}
+         bcc   :slam
+         jsr   musictick
 :next    stz   ndirty           ; start the next pass: nothing dirty yet
          inc   stamp
          bne   :rts
@@ -2911,7 +2952,11 @@ celltest lda   mrow
 * buffer -> screen, for each cell in the dirty list
 restorecells
          ldy   #0
-:loop    cpy   ndirty
+:loop    tya                    ; (every 8 cells the music's clock: a
+         and   #$000F           ;   full view takes several frames)
+         bne   :clk
+         jsr   musictick
+:clk     cpy   ndirty
          bcs   :done
          lda   dirtylist,y
          tax
@@ -3014,7 +3059,11 @@ restorecell
 
 copycells
          ldy   #0
-:loop    cpy   ndirty
+:loop    tya                    ; (every 8 cells the music's clock)
+         and   #$000F
+         bne   :clk
+         jsr   musictick
+:clk     cpy   ndirty
          bcs   :done
          lda   fullview         ; (the view's cells go by slam then)
          beq   :copy
@@ -4145,7 +4194,8 @@ drawready
 * scrolling and the radar
 
 * scroll: move the view a tile when the mouse is at the edge of the
-* screen or an arrow key is pressed (at most every 4 frames)
+* screen or an arrow key is pressed (at most every 4 frames); the M key
+* turns the music off or on
 scroll   stz   tmp              ; tmp, tmp2 = step in x, y
          stz   tmp2
          sep   #$20
@@ -4159,7 +4209,12 @@ scroll   stz   tmp              ; tmp, tmp2 = step in x, y
          rep   #$20
          mx    %00
          and   #$007F
-         cmp   #$08             ; left arrow
+         cmp   #$4D             ; M (or m): the music off or on
+         beq   :music
+         cmp   #$6D
+         bne   :arrow
+:music   jmp   togglemusic
+:arrow   cmp   #$08             ; left arrow
          bne   :k1
          dec   tmp
 :k1      cmp   #$15             ; right
@@ -4313,7 +4368,11 @@ drawradar
          lda   #WORKBANK
          sta   dst+2
          ldx   #0               ; record and draw every dot, then
-:all     cpx   #MAXUNITS*2      ; the frame
+:all     txa                    ;   the frame (every 16 units the
+         and   #$001F           ;   music's clock)
+         bne   :clk
+         jsr   musictick
+:clk     cpx   #MAXUNITS*2
          bcs   :alld
          jsr   radpos
          lda   rx
@@ -4575,7 +4634,11 @@ radpos   cpx   nunits
 
 * raddots: draw every unit's dot as recorded in urx / ury
 raddots  ldx   #0
-:loop    cpx   #MAXUNITS*2
+:loop    txa                    ; (every 16 units the music's clock)
+         and   #$001F
+         bne   :clk
+         jsr   musictick
+:clk     cpx   #MAXUNITS*2
          bcs   :done
          lda   urx,x
          cmp   #NONE
@@ -5437,7 +5500,8 @@ docw     pha
          mx    %00
 
 * initsound: every oscillator stopped, all 32 running (so a scan is
-* 26,320 Hz), and the four of each sound set up from sndtab
+* 26,320 Hz), and each sound's set up from sndtab: two per voice (left,
+* right), from its first oscillator (the music has 0-9)
 initsound
          lda   soundok
          bne   :go
@@ -5453,16 +5517,15 @@ initsound
          ldx   #$E1
          lda   #$3E             ; (number of oscillators - 1) * 2
          jsr   docw
-         stz   sosc
          ldy   #0               ; Y = the sound's sndtab entry
 :snd     cpy   #NSOUNDS*8
          bcs   :done
-         stz   sk
-:osc     lda   sosc
-         clc
-         adc   sk
+         lda   sndtab+5,y       ; its first oscillator
          sta   so
-         tax                    ; frequency, low and high
+         lda   sndtab+6,y       ; voices * 2 of them
+         asl
+         sta   sk
+:osc     ldx   so               ; frequency, low and high
          lda   sndtab+2,y
          jsr   docw
          lda   so
@@ -5485,10 +5548,10 @@ initsound
          tax
          lda   sndtab+1,y
          jsr   docw
-         lda   so               ; one-shot, halted, on channel sk & 1
+         lda   so               ; one-shot, halted, on channel so & 1
          ora   #$A0
          tax
-         lda   sk
+         lda   so
          and   #1
          asl
          asl
@@ -5496,14 +5559,9 @@ initsound
          asl
          ora   #$03
          jsr   docw
-         inc   sk
-         lda   sk
-         cmp   #4
+         inc   so
+         dec   sk
          bne   :osc
-         lda   sosc
-         clc
-         adc   #4
-         sta   sosc
          tya
          clc
          adc   #8
@@ -5513,9 +5571,9 @@ initsound
          mx    %00
          rts
 
-* sounds: (once a frame) start the sounds asked for: each restarts the
-* other of its two voices than last time, both channels (halt, then run:
-* it plays from the start)
+* sounds: (once a frame) start the sounds asked for: each restarts its
+* voice (with two: the other one than last time), both channels (halt,
+* then run: it plays from the start)
 sounds   lda   sndreq
          bne   :some
          rts
@@ -5529,17 +5587,24 @@ sounds   lda   sndreq
          ldy   #0               ; Y = sound number
 :loop    lsr   sreq
          bcc   :skip
-         tya                    ; its first oscillator: number * 4,
-         asl                    ; + 2 for the other voice
+         tya                    ; its sndtab entry
          asl
+         asl
+         asl
+         tax
+         lda   sndtab+5,x       ; its first oscillator
          sta   so
+         lda   sndtab+6,x       ; two voices: + 2 for the other one
+         cmp   #2
+         bcc   :v0
          lda   svoice
          eor   sbit
          sta   svoice
          and   sbit
          beq   :v0
          lda   so
-         ora   #2
+         clc
+         adc   #2
          sta   so
 :v0      lda   so
          ora   #$A0
@@ -5565,12 +5630,23 @@ sounds   lda   sndreq
          rts
 
 *-------------------------------------------------------------------
-* title music (tools/makemusic.py): five voices on oscillators 0-9, each
-* on the left and the right channel. Bass, lead and arpeggio loop a 256-
-* byte wave (free-run) at a note's frequency; their volume follows an
-* envelope, once a frame. Kick/snare and hi-hat are one-shot samples.
-* Every MUSFPS frames the next step of the score: per voice 0 nothing,
-* 255 note off, else a note (musfreq, from 1) or a drum (1-3).
+* music (tools/makemusic.py): the title tune and the battle tune, five
+* voices on oscillators 0-9, each on the left and the right channel.
+* Bass, lead and arpeggio loop a 256-byte wave (free-run) at a note's
+* frequency; their volume follows an envelope, once a frame. Kick/snare
+* and hi-hat are one-shot samples. Every so many frames the next step of
+* the score: per voice 0 nothing, 255 note off, else a note (musfreq,
+* from 1) or a drum (1-3). A tune's numbers (mustracks) are copied into
+* mtr when it starts:
+MT_FPS   equ   0                ; frames a step
+MT_STEPS equ   2                ; steps
+MT_VBASE equ   4                ; per voice: where its steps start in musdata
+MT_PK    equ   14               ; per tone voice: peak volume, decay a
+MT_DC    equ   20               ;   frame, sustain level, release a frame
+MT_SU    equ   26
+MT_RL    equ   32
+MT_DVOL  equ   38               ; per drum: volume
+MT_WAVE  equ   44               ; per tone voice: its wave (wavepgs)
 
 * docx: (16-bit caller) DOC register X = A, low bytes (keeps X, Y < 256)
 docx     php
@@ -5581,21 +5657,40 @@ docx     php
          mx    %00
          rts
 
-* musstart: the music's oscillators set up, silent; from the first step
-musstart lda   soundok
+* musstart: start tune A (TUNE_TITLE, TUNE_BATTLE) from the beginning
+musstart ldx   soundok
          bne   :go
          rts
-:go      ldx   #$A0             ; oscillators 0-9 stopped
+:go      ldx   #0               ; its numbers into mtr
+         asl                    ; (A * 50 = A * 2 + A * 16 + A * 32)
+         sta   tmp
+         asl
+         asl
+         asl
+         sta   tmp2
+         asl
+         clc
+         adc   tmp2
+         adc   tmp
+         tay
+:copy    lda   mustracks,y
+         sta   mtr,x
+         iny
+         iny
+         inx
+         inx
+         cpx   #MTRSZ
+         bne   :copy
+         ldx   #$A0             ; oscillators 0-9 stopped
 :halt    lda   #$01
          jsr   docx
          inx
          cpx   #$AA
          bne   :halt
          ldy   #0               ; tone voices: Y = voice * 2 = its left
-:tone    tya                    ; oscillator (+1: right)
-         lsr
-         tax
-         lda   wavepg,x         ; its wave: 256 bytes, resolution 0
+:tone    lda   mtr+MT_WAVE,y    ;   oscillator (+1: right); its wave:
+         tax                    ;   256 bytes, resolution 0
+         lda   wavepgs,x
          and   #$00FF
          sta   mfreq
          tya
@@ -5659,7 +5754,8 @@ musstart lda   soundok
          cpx   #10
          bne   :drum
          stz   mstep
-         lda   #MUSFPS-1
+         lda   mtr+MT_FPS
+         dec
          sta   mtick
          rts
 
@@ -5670,15 +5766,12 @@ musplay  lda   soundok
          rts
 :go      inc   mtick
          lda   mtick
-         cmp   #MUSFPS
+         cmp   mtr+MT_FPS
          bcs   :step
          jmp   :env
 :step    stz   mtick
          ldy   #0               ; tone voices (Y = voice * 2)
-:tone    tya
-         lsr
-         xba                    ; voice * 128 + step
-         lsr
+:tone    lda   mtr+MT_VBASE,y   ; its steps
          clc
          adc   mstep
          tax
@@ -5709,23 +5802,25 @@ musplay  lda   soundok
          jsr   docx
          inx
          jsr   docx
-         lda   envpk,y          ; loud, then decaying
+         lda   mtr+MT_PK,y      ; loud, then decaying
          sta   mvol,y
          lda   #1
          sta   mmode,y
+         lda   #NONE            ; (its volume to be written)
+         sta   mlast,y
 :tnext   iny
          iny
          cpy   #6
          bne   :tone
          ldy   #6               ; kick/snare: oscillators 6, 7
-         lda   #3*MUSSTEPS
+         lda   mtr+MT_VBASE+6
          jsr   :drum
          ldy   #8               ; hi-hat: oscillators 8, 9
-         lda   #4*MUSSTEPS
+         lda   mtr+MT_VBASE+8
          jsr   :drum
          inc   mstep            ; (and round again)
          lda   mstep
-         cmp   #MUSSTEPS
+         cmp   mtr+MT_STEPS
          bcc   :env
          stz   mstep
 :env     ldy   #0               ; envelopes
@@ -5735,20 +5830,23 @@ musplay  lda   soundok
          bne   :rel
          lda   mvol,y           ; decay down to the sustain level
          sec
-         sbc   envdc,y
+         sbc   mtr+MT_DC,y
          bmi   :sus
-         cmp   envsu,y
+         cmp   mtr+MT_SU,y
          bcs   :setv
-:sus     lda   envsu,y
+:sus     lda   mtr+MT_SU,y
          bra   :setv
 :rel     lda   mvol,y           ; fade out to silence
          sec
-         sbc   envrl,y
+         sbc   mtr+MT_RL,y
          beq   :quiet
          bpl   :setv
 :quiet   lda   #0
          sta   mmode,y
 :setv    sta   mvol,y
+         cmp   mlast,y          ; (the same as it is: nothing to write)
+         beq   :enext
+         sta   mlast,y
          sta   mfreq
          tya                    ; volume, both sides
          ora   #$40
@@ -5778,8 +5876,10 @@ musplay  lda   soundok
          ldx   mdbase
          lda   drumsr,x
          jsr   :bothC0
-         ldx   mdbase
-         lda   drumvol,x
+         lda   mdbase
+         asl
+         tax
+         lda   mtr+MT_DVOL,x
          jsr   :both40
          tya                    ; and from the start: stop, then run
          ora   #$A0
@@ -5812,17 +5912,59 @@ musplay  lda   soundok
          inx
          jmp   docx
 
-* musstop: the music silenced, the sound effects set up again
-musstop  jmp   initsound
+* musstop: the music silenced (oscillators 0-9 stopped)
+musstop  lda   soundok
+         beq   :rts
+         ldx   #$A0
+:halt    lda   #$01
+         jsr   docx
+         inx
+         cpx   #$AA
+         bne   :halt
+:rts     rts
 
-wavepg   dfb   PG_BASS,PG_LEAD,PG_ARP
-envpk    dw    PK_BASS,PK_LEAD,PK_ARP    ; per tone voice: peak volume,
-envdc    dw    DC_BASS,DC_LEAD,DC_ARP    ;   decay a frame, sustain level,
-envsu    dw    SU_BASS,SU_LEAD,SU_ARP    ;   release a frame
-envrl    dw    RL_BASS,RL_LEAD,RL_ARP
-drumpg   dfb   PG_KICK,PG_SNARE,PG_HAT   ; per drum: page, size/resolution,
-drumsr   dfb   SR_KICK,SR_SNARE,SR_HAT   ;   volume
-drumvol  dfb   VOL_KICK,VOL_SNARE,VOL_HAT
+* musictick: the music's clock in a game. Each video frame that has begun
+* since the last look (VERTCNT counting from the top again) moves the
+* tune a frame on. It is looked at before and after each wait for the
+* blank, and inside the long loops (every 8 cells redrawn, every 16
+* units), more than once a frame, so a frame of the game that takes
+* several (a scroll redraws the whole view) doesn't slow the tune.
+* (Keeps X, Y; data bank 0.)
+musictick
+         lda   musicon
+         beq   :rts
+         sep   #$20
+         mx    %10
+         lda   VERTCNT
+         cmp   mvc              ; lower than last time: a new frame
+         sta   mvc
+         rep   #$20
+         mx    %00
+         bcs   :rts
+         phx
+         phy
+         jsr   musplay
+         ply
+         plx
+:rts     rts
+
+* togglemusic: the M key - the music off, or the battle tune on again
+togglemusic
+         lda   MUSICOFF
+         eor   #1
+         sta   MUSICOFF
+         bne   :off
+         lda   #TUNE_BATTLE
+         jsr   musstart
+         lda   #1
+         sta   musicon
+         rts
+:off     stz   musicon
+         jmp   musstop
+
+wavepgs  dfb   PG_BASS,PG_LEAD,PG_ARP,PG_PAD   ; the tone voices' waves
+drumpg   dfb   PG_KICK,PG_SNARE,PG_HAT   ; per drum: page, size/resolution
+drumsr   dfb   SR_KICK,SR_SNARE,SR_HAT
 
 *-------------------------------------------------------------------
 * placing structures
@@ -7305,12 +7447,17 @@ title    lda   #DATAADDR+DATA_PROMPT
          sta   dst
          dec   ty
          bne   :row
-         jsr   musstart         ; the title music (on into the options)
+         lda   MUSICOFF         ; the title tune (on into the options)
+         bne   :wait
+         lda   #TUNE_TITLE
+         jsr   musstart
          lda   #1
          sta   musicon
 :wait    jsr   waitvbl
+         lda   musicon
+         beq   :tw
          jsr   musplay
-         lda   TITLEWAIT
+:tw      lda   TITLEWAIT
          beq   :go
          jsr   readmouse
          lda   click
@@ -7329,21 +7476,18 @@ title    lda   #DATAADDR+DATA_PROMPT
          rts
 
 *-------------------------------------------------------------------
-* options: before each game, the difficulty and the map (the buttons of
-* the chosen ones pressed), then START - a click on it, RETURN, or a
-* test script clearing OPTWAIT. The title music plays on (or starts).
+* options: before each game, the difficulty, the map and the music on
+* or off (the buttons of the chosen ones pressed), then START - a click
+* on it, RETURN, or a test script clearing OPTWAIT. The title tune plays
+* on (or starts), unless the music is off.
 * The screen comes packed from CONQUER.DATA; a clean copy stays in the
 * work buffer (bank 1: free until the game starts), from which buttons
 * are drawn pressed or not. The previews are the maps' radar pictures,
 * twice the size. The arrow is drawn straight onto the screen, what it
 * covers kept in curbuf.
 
-options  lda   musicon
-         bne   :mus
-         jsr   musstart
-         lda   #1
-         sta   musicon
-:mus     jsr   clearshr
+options  jsr   optmusic
+         jsr   clearshr
          jsr   setpalette
          lda   #DATAADDR+DATA_OPTS
          ldx   #WORKBANK
@@ -7378,8 +7522,10 @@ options  lda   musicon
          lda   #1
          sta   OPTWAIT
 :loop    jsr   waitvbl
+         lda   musicon
+         beq   :quiet
          jsr   musplay
-         jsr   readmouse
+:quiet   jsr   readmouse
          lda   OPTWAIT
          beq   :go
          sep   #$20
@@ -7400,9 +7546,16 @@ options  lda   musicon
          pha
          jsr   curhide
          pla
+         cmp   #48
+         bcs   :music
          cmp   #16
          bcs   :map
          sta   DIFF
+         bra   :redraw
+:music   sec                    ; 48 on, 49 off
+         sbc   #48
+         sta   MUSICOFF
+         jsr   optmusic
          bra   :redraw
 :map     sec
          sbc   #16
@@ -7434,11 +7587,30 @@ options  lda   musicon
          cmp   #NMAPS
          bcc   :mok
          stz   MAPNO
-:mok     stz   musicon
+:mok     lda   MUSICOFF
+         and   #1
+         sta   MUSICOFF
+         stz   musicon          ; (the title tune stops)
+         jmp   musstop
+
+* optmusic: the title tune playing if the music is on, else silence
+optmusic lda   MUSICOFF
+         bne   :off
+         lda   musicon
+         bne   :rts
+         lda   #TUNE_TITLE
+         jsr   musstart
+         lda   #1
+         sta   musicon
+:rts     rts
+:off     lda   musicon
+         beq   :rts
+         stz   musicon
          jmp   musstop
 
 * opthit: A = action of the options screen area under the mouse (0-2 a
-* difficulty, 16 + map, 32 START; N clear), or NONE (N set)
+* difficulty, 16 + map, 32 START, 48 music on, 49 off; N clear), or NONE
+* (N set)
 opthit   ldx   #0
 :next    lda   opttab,x
          cmp   #NONE
@@ -7466,7 +7638,7 @@ opthit   ldx   #0
          rts
 
 * optbtns: draw the options screen's buttons from the clean copy, the
-* chosen difficulty's and map's pressed (colors through btnmap)
+* chosen difficulty's, map's and music's pressed (colors through btnmap)
 optbtns  ldx   #0
 :next    lda   opttab,x
          cmp   #NONE
@@ -7483,6 +7655,10 @@ optbtns  ldx   #0
          sec
          sbc   #16
          cmp   MAPNO
+         beq   :on
+         sec
+         sbc   #32
+         cmp   MUSICOFF
          bne   :draw
 :on      inc   tmp3
 :draw    phx
@@ -8141,8 +8317,9 @@ blit
          rts
 
 *-------------------------------------------------------------------
-* slam: copy the view (the work buffer's map area) to the screen, fast.
-* Runs from SLAMADDR in bank 6 (copied there at start): with RAMRD and
+* slam: copy slamrows lines of the view from slamfrom (the work buffer's
+* map area) to the screen, fast. Runs from SLAMADDR in bank 6 (copied
+* there at start): with RAMRD and
 * RAMWRT on, bank 0 accesses at $0200-$BFFF go to bank 1, and with SHR
 * shadowing on, writes there also go to the screen. Direct page and the
 * stack point into a work buffer row, and PEI pushes each word of it
@@ -8150,9 +8327,12 @@ blit
 * absolute jumps (it runs elsewhere) or the stack.
 
 SLAMADDR equ   CODEBANK*$10000+$F000
+SLAMROWS equ   32               ; lines a slam copies (192 in 6 goes)
 
 slamcode tsc                    ; (D = 0 here)
          sta   savesp
+         ldy   slamfrom         ; (read before bank 0 reads switch)
+         ldx   slamrows
          sep   #$20
          mx    %10
          lda   SHADOW           ; SHR shadowing on
@@ -8162,8 +8342,7 @@ slamcode tsc                    ; (D = 0 here)
          sta   RAMWRTON
          rep   #$20
          mx    %00
-         lda   #$2000+{TOPH*LINE}
-         ldx   #200-TOPH        ; rows
+         tya                    ; the first row's address
 :rowjmp
 :row     tcd                    ; direct page = the row,
          clc
@@ -8265,8 +8444,9 @@ ringtab  putbin ../build/gfx/ringtab.bin
 sighttab putbin ../build/gfx/sight.bin   ; sight circles' half widths
 btnmap   putbin ../build/gfx/btnmap.bin  ; a pressed button's colors
 aiorder  putbin ../build/gfx/aiorder.bin ; the enemy's build order (templates)
-musdata  putbin ../build/gfx/music.bin   ; the title music's steps, per voice
-musfreq  putbin ../build/gfx/musfreq.bin ; and its notes' frequencies
+musdata  putbin ../build/gfx/music.bin   ; the tunes' steps, per voice
+musfreq  putbin ../build/gfx/musfreq.bin ; their notes' frequencies
+mustracks putbin ../build/gfx/mustracks.bin ; each tune's numbers (MT_)
 sndtab   putbin ../build/gfx/sndtab.bin  ; per sound: page, size/res, frequency,
                                 ;   volume (8 bytes each)
 dmgtab   putbin ../build/gfx/dmgtab.bin  ; damage factor (eighths) per weapon * 4
