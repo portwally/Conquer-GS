@@ -120,7 +120,10 @@ Then click START or press RETURN. Your choices are kept for the next game.
   harvester that finds no ore waits and looks again every few seconds.
 - A refinery comes with a harvester of its own. Build it near the ore and
   the trips get shorter.
-- Structures and units build in two separate queues, one of each at a time.
+- Structures, infantry, vehicles and harvesters build in four separate
+  queues, one of each at a time: a soldier from the barracks, a tank from
+  the war factory, a harvester from the command center and a structure can
+  all be under way at once.
   The cost is paid up front; a bar under the icon shows the progress.
 - Your command center makes 100 power and each power plant 100 more. The
   other structures use power; the top bar shows what is used and what is

@@ -179,7 +179,7 @@ G.at(1690, function()
   G.click(1691, 100, 100)                                 -- (sell mode off)
 end)
 build(1710, 'tank_p')
-G.at(1730, function() check(G.w(V.QICON + 2) == 0xFFFF, "a click on the tank icon does nothing") end)
+G.at(1730, function() check(G.w(V.QICON + 4) == 0xFFFF, "a click on the tank icon does nothing") end)
 -- a harvester, with no war factory: by the command center
 local harvsb
 G.at(1755, function() harvsb = find(ourharv) end)

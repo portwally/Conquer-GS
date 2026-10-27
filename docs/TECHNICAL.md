@@ -147,6 +147,12 @@ words hold the top-left tile and size of their footprint (walled off in
 the passability table), and they are drawn as 16x16 pieces with the map.
 The starting buildings come from the map like the units.
 
+Our side builds in four queues (`QUEUES` in `tools/makegfx.py`; each icon
+names its own): structures, infantry, vehicles and harvesters, one item
+each at a time, all four at once (`production` runs each queue's
+`prodq` every frame). A click on an icon whose queue is busy with
+something else does nothing. The enemy builds one unit at a time.
+
 A building's door is the tile below its bottom-left corner. Units come out
 by the door of the building they need (`findbld`): soldiers a barracks,
 tanks and buggies a war factory, for both sides, and a war factory a

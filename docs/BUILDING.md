@@ -130,6 +130,10 @@ Most print their findings and end with `problems: 0` when all is well.
 - `tools/wintest.lua` (400 s): removes the enemy's units and its other
   buildings and destroys the barracks with one tank, then prints how long a
   new game takes to start after the click (about 2.5 seconds).
+- `tools/queuetest.lua` (60 s): a soldier, a tank, a harvester and a power
+  plant build at the same time, each in its own queue; a rocket soldier
+  and a buggy clicked meanwhile are ignored; the units come out by the
+  barracks, the war factory and the command center.
 - `tools/harvtest.lua` (200 s): harvesters have 400 hit points; the
   enemy's harvester unloads at its refinery's door and the enemy gets its
   share a scoop; killed, a new one comes by the refinery's door in 30

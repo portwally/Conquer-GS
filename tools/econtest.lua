@@ -4,7 +4,7 @@
 -- Prints credits and the harvester's state as they change.
 local G = dofile("tools/gs.lua")
 local V = G.V
-local STATES = {[0] = "idle", "seek", "goto", "mine", "home", "unload"}
+local STATES = {[0] = "idle", "seek", "goto", "mine", "home", "unload", "wait"}
 local function harv(tag)
   local c, r = G.tile(2)
   print(string.format("%-8s f=%5d game=%5d credits=%5d harvester: %-6s tile=(%2d,%2d) cargo=%3d ore@(8,16)=%2d units=%d queue=%s/%d",

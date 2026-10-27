@@ -1908,9 +1908,17 @@ def templates():
     return [(n, tuple(r)) for n, r in out]
 
 
+QUEUES = ['structures', 'infantry', 'vehicles', 'harvesters']
+
+
 def icon_queue(name):
-    """0 = structure queue, 1 = unit queue."""
-    return 0 if name in STRUCTS else 1
+    """Its build queue: structures, infantry (barracks), vehicles (war
+    factory) or harvesters (command center), each building one at a time,
+    all at once."""
+    kind = name.split('_')[0]
+    if name in STRUCTS:
+        return 0
+    return {'sold': 1, 'rock': 1, 'tank': 2, 'buggy': 2, 'harv': 3}[kind]
 
 
 def icon_dim(img, i):
@@ -3008,7 +3016,7 @@ def main(outdir):
            'LBL_ICON0': tagno['icon0'],
            'PREVOFF': OPT_PREV_Y * 160 + OPT_PREV_X // 2,
            'PREVW': RADAR_W, 'PREVH': RADAR_H * 2,
-           'NAIORDER': len(AI_BUILDS), 'NICONS': len(ICON_UNITS),
+           'NAIORDER': len(AI_BUILDS), 'NICONS': len(ICON_UNITS), 'NQUEUES': len(QUEUES),
            **{'SPR_' + u.upper(): SPRITE_ORDER.index(u) for u in UNIT_TYPES},
            'WPN_ROCKETS': ROCKETS,
            'BANNEROFF': BANNER_Y * 160 + BANNER_X // 2,

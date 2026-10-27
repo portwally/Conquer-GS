@@ -190,12 +190,14 @@ mtick    equ   mmode+$6         ;   decaying, 2 note fading out; frames
 mstep    equ   mtick+$2         ;   into the step, the step,
 mfreq    equ   mstep+$2         ;   (scratch)
 mdbase   equ   mfreq+$2
-qicon    equ   mdbase+$40       ; per build queue (0 = structures, 1 =
-qtype    equ   qicon+$4         ;   units): icon being built or NONE,
-qseg     equ   qtype+$4         ;   its template, bar segments filled,
-qtime    equ   qseg+$4          ;   frames to the next segment, and
-qready   equ   qtime+$4         ;   nonzero once a structure is done
-vcol     equ   qready+$10       ; updplace: footprint in view tiles
+QTAB     equ   8                ; bytes in a per-queue table (NQUEUES * 2)
+qicon    equ   mdbase+$40       ; per build queue (0 = structures, 1
+qtype    equ   qicon+QTAB       ;   infantry, 2 vehicles, 3 harvesters):
+qseg     equ   qtype+QTAB       ;   icon being built or NONE, its
+qtime    equ   qseg+QTAB        ;   template, bar segments filled, frames
+qready   equ   qtime+QTAB       ;   to the next segment, and nonzero
+vcol     equ   qready+QTAB      ;   once a structure is done; updplace:
+                                ;   footprint in view tiles
 vrow     equ   vcol+$2
 radmk    equ   vrow+$2          ; raddot: nonzero = also mark its cells
 sgtile   equ   radmk+$4         ; sight: the tile seen around,
@@ -519,9 +521,12 @@ restart  lda   #0               ; clear our variables
          dex
          dex
          bpl   :ok
-         lda   #NONE            ; both build queues idle
-         sta   qicon
-         sta   qicon+2
+         lda   #NONE            ; the build queues idle
+         ldx   #NQUEUES*2-2
+:qidle   sta   qicon,x
+         dex
+         dex
+         bpl   :qidle
          sta   lookx            ; (no view move asked for)
          sta   lblnum           ; no name tag
          sta   lbltgt
@@ -4171,12 +4176,17 @@ iconclick
          mx    %00
          jmp   markicon
 
-* production: once per frame, both queues
+* production: once per frame, every queue
 production
          jsr   refreshicons
-         ldx   #0
+         ldx   #NQUEUES*2-2
+:q       phx
          jsr   prodq
-         ldx   #2
+         plx
+         dex
+         dex
+         bpl   :q
+         rts
 
 * prodq: X = queue * 2; fill the bar, then deliver
 prodq    lda   qicon,x
@@ -4272,16 +4282,20 @@ initicons
          cmp   iconok,x
          beq   :next
          sta   iconok,x
-         tya                    ; being built? leave it alone
-         cmp   qicon
-         beq   :next
-         cmp   qicon+2
-         beq   :next
+         phx                    ; being built? leave it alone
+         ldx   #NQUEUES*2-2
+         tya
+:inq     cmp   qicon,x
+         beq   :busy
+         dex
+         dex
+         bpl   :inq
+         plx
          phx
          phy
          jsr   drawicon
          ply
-         plx
+:busy    plx
 :next    inx
          inx
          tya

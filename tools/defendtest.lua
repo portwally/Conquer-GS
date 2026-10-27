@@ -49,7 +49,7 @@ G.run(60 * 60 * 8 + 700, function(f)
   end
   -- unit queue idle and money for a tank: another tank (once there is a
   -- war factory: before, the icon does nothing)
-  if f % 60 == 30 and G.w(V.QICON + 2) == 0xFFFF and G.w(V.CREDITS) >= 800 then
+  if f % 60 == 30 and G.w(V.QICON + 4) == 0xFFFF and G.w(V.CREDITS) >= 800 then
     G.click(f + 1, I.tank_p[1], I.tank_p[2])
   end
   if G.w(V.GAMEOVER) ~= 0 then
