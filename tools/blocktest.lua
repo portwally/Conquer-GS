@@ -1,5 +1,6 @@
 -- Blocked units test. 1: a new buggy comes out of the war factory's door
--- (5,18) boxed in by parked units (two tanks, two soldiers) and walls (the
+-- (5,18; the barracks and the factory built at once first) boxed in by
+-- parked units (two tanks, two soldiers) and walls (the
 -- command center's pad, the factory); ordered east, the idle ones must
 -- make way and it must get there. 2: a tank in a
 -- pocket whose neighbors cannot move (held in place by the script) must
@@ -73,11 +74,13 @@ local function part2(f0)
     manager.machine:exit()
   end)
 end
-G.at(700, function()                            -- park them around the door
-  G.sw(V.USTATE, 2, 0); G.sw(V.UGOAL, 2, 0xFFFF)   -- (the harvester stays put)
+G.at(700, function() G.sw(V.USTATE, 2, 0); G.sw(V.UGOAL, 2, 0xFFFF) end)   -- (the
+G.quickbuild(705, I.bar_p, 1, 16, 2)            -- harvester stays put) a barracks,
+G.quickbuild(760, I.fact_p, 5, 16, 2)           --   then the war factory
+G.at(815, function()                            -- park them around its door
   G.teleport(0, 6, 18); G.teleport(1, 5, 19); G.teleport(3, 6, 19); G.teleport(4, 4, 17)
 end)
-G.click(705, I.buggy_p[1], I.buggy_p[2])
+G.click(820, I.buggy_p[1], I.buggy_p[2])
 local state, ordered = "wait", nil
 G.run(4000, function(f)
   if f > 700 then mem:write_u16(V.AICREDITS, 0) end

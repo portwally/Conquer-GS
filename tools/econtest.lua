@@ -1,5 +1,6 @@
--- Economy test: watch the harvester work for a while and build a tank
--- (the soldier click is ignored: no barracks). The enemy builds nothing.
+-- Economy test: watch the harvester work for a while; clicks on the
+-- tank and soldier icons are ignored (no war factory, no barracks). The
+-- enemy builds nothing.
 -- Prints credits and the harvester's state as they change.
 local G = dofile("tools/gs.lua")
 local V = G.V

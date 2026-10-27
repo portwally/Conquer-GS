@@ -9,6 +9,7 @@
 --   G.seeall()                        lift the fog of war
 --   G.seen(t)                         has world tile t been seen?
 --   G.radar()                         the radar on without a radar center
+--   G.quickbuild(f, icon, c, r, size) build and place a structure at once
 --   G.run(last)                       start; exit MAME after frame `last`
 -- G.V holds the addresses (tools/vars.lua), G.f the current frame.
 local G = {}
@@ -69,6 +70,18 @@ function G.clear(c0, r0, size)
   end end
 end
 function G.seeall() mem:write_u16(V.SEEALL, 1) end     -- no fog from the next frame
+-- G.quickbuild(f, icon, col, row, size): from frame f, build the structure
+-- of sidebar icon {x, y} at once (the script fills its progress bar) and
+-- place it with its top left at col, row. Done 50 frames later.
+function G.quickbuild(f, icon, col, row, size)
+  G.click(f, icon[1], icon[2])
+  G.at(f + 12, function() G.sw(V.QSEG, 0, V.BARSEGS) end)
+  G.click(f + 20, icon[1], icon[2])
+  G.at(f + 30, function() G.clear(col, row, size) end)
+  G.at(f + 32, function()
+    local x, y = G.tilexy(col, row); G.click(f + 33, x + (size - 1) * 8, y + (size - 1) * 8)
+  end)
+end
 -- G.radar(): the radar works without a radar center (from the next frame)
 function G.radar() mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end
 function G.seen(t) return mem:read_u16(V.FOG + 2 * t) & V.UNSEEN == 0 end

@@ -1623,14 +1623,14 @@ F_BUILDING, F_AI, F_AMOVE, F_DIRTY = 0x100, 0x200, 0x400, 0x8000
 # The maps: name, terrain, the starting buildings ((name, top-left column,
 # row): the command center and the enemy's barracks on 3x3 pads of
 # concrete, the rest 2x2 on open ground; they become units after the
-# others), the units (name, column, row), where harvesters unload (next
+# others; we start with the command center only), the units (name, column, row), where harvesters unload (next
 # to the command center), where our new units appear when no building
 # makes them, the first view's top-left tile, and whether the enemy is in
 # the west (then the units start facing each other that way).
 MAPS = [
     {'name': 'GREEN VALLEY', 'rows': green_valley(),
-     'buildings': [('hq_p', 2, 18), ('bar_e', 26, 3), ('fact_p', 5, 16),
-                   ('fact_e', 29, 3), ('ref_e', 24, 1), ('pp_e', 29, 6)],
+     'buildings': [('hq_p', 2, 18), ('bar_e', 26, 3),
+                   ('fact_e', 29, 3), ('ref_e', 24, 1), ('pp_e', 29, 7)],
      'units': [('tank_p', 6, 18), ('tank_p', 6, 20), ('harv_p', 8, 16),
                ('sold_p', 5, 21), ('sold_p', 6, 21),
                ('tank_e', 24, 7), ('tank_e', 26, 8),
@@ -1639,7 +1639,7 @@ MAPS = [
      'dock': (5, 19), 'exit': (5, 20), 'camera': (0, 12),
      'enemy_west': False},
     {'name': 'RIVER CROSSING', 'rows': river_crossing(),
-     'buildings': [('hq_p', 26, 17), ('bar_e', 3, 3), ('fact_p', 29, 17),
+     'buildings': [('hq_p', 26, 17), ('bar_e', 3, 3),
                    ('fact_e', 6, 1), ('ref_e', 1, 6), ('pp_e', 1, 3)],
      'units': [('tank_p', 24, 17), ('tank_p', 24, 19), ('harv_p', 21, 17),
                ('sold_p', 26, 20), ('sold_p', 25, 20),
@@ -1649,7 +1649,7 @@ MAPS = [
      'dock': (25, 18), 'exit': (25, 19), 'camera': (16, 12),
      'enemy_west': True},
     {'name': 'TWIN LAKES', 'rows': twin_lakes(),
-     'buildings': [('hq_p', 2, 3), ('bar_e', 26, 18), ('fact_p', 5, 1),
+     'buildings': [('hq_p', 2, 3), ('bar_e', 26, 18),
                    ('fact_e', 29, 18), ('ref_e', 23, 14), ('pp_e', 28, 15)],
      'units': [('tank_p', 6, 4), ('tank_p', 6, 6), ('harv_p', 8, 8),
                ('sold_p', 4, 7), ('sold_p', 5, 7),
@@ -1659,7 +1659,7 @@ MAPS = [
      'dock': (5, 4), 'exit': (5, 5), 'camera': (0, 0),
      'enemy_west': False},
     {'name': 'STONE PASS', 'rows': stone_pass(),
-     'buildings': [('hq_p', 2, 10), ('bar_e', 27, 10), ('fact_p', 5, 7),
+     'buildings': [('hq_p', 2, 10), ('bar_e', 27, 10),
                    ('fact_e', 24, 8), ('ref_e', 24, 13), ('pp_e', 29, 6)],
      'units': [('tank_p', 6, 11), ('tank_p', 6, 13), ('harv_p', 8, 14),
                ('sold_p', 4, 14), ('sold_p', 5, 14),
@@ -1754,10 +1754,12 @@ H_IDLE, H_SEEK, H_GOTO, H_MINE, H_HOME, H_UNLOAD = range(6)
 
 # sidebar build icons, three across, top to bottom. Structures and units
 # build in two separate queues; soldiers need a barracks, vehicles a war
-# factory (and come out of it); so do the enemy's.
+# factory (and come out of it), and a war factory needs a barracks; so do
+# the enemy's.
 ICON_UNITS = ['pp_p', 'bar_p', 'ref_p', 'fact_p', 'radar_p', 'turret_p', 'tower_p',
               'harv_p', 'tank_p', 'buggy_p', 'sold_p', 'rock_p']
-NEEDS = {'sold_p': 'bar_p', 'rock_p': 'bar_p', 'harv_p': 'fact_p', 'tank_p': 'fact_p',
+NEEDS = {'fact_p': 'bar_p',
+         'sold_p': 'bar_p', 'rock_p': 'bar_p', 'harv_p': 'fact_p', 'tank_p': 'fact_p',
          'buggy_p': 'fact_p', 'sold_e': 'bar_e', 'rock_e': 'bar_e', 'tank_e': 'fact_e',
          'buggy_e': 'fact_e'}
 BARSEGS = 8                     # a progress bar's segments (2 pixels each)
@@ -2258,6 +2260,21 @@ def map_checks():
         assert MAP[y][x] not in BLOCKED + 'o' and (x, y) not in foot, (x, y)
     for name, c, r in UNITS:
         assert (c, r) not in foot and (c, r) not in doors, name
+    # every door, the dock and the exit reach our dock (units step only
+    # straight, not past the corners of walls, so straight steps it is)
+    walls = foot | {(c, r) for name, c, r in UNITS if name.startswith(('turret', 'tower'))}
+    def open_(x, y):
+        return MAP[y][x] not in BLOCKED and (x, y) not in walls
+    reach, todo = {DOCK}, [DOCK]
+    while todo:
+        x, y = todo.pop()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (x + dx, y + dy)
+            if n not in reach and open_(*n):
+                reach.add(n)
+                todo.append(n)
+    for p in doors + [EXIT]:
+        assert p in reach, ('shut in', p)
 
 
 # -------------------------------------------------------------- options
@@ -2943,7 +2960,7 @@ def main(outdir):
            'SPR_FOG': SPRITE_ORDER.index('fog_n'), 'TMPLSZ': TMPLSZ, 'ICONSZ': ICONSZ,
            **{'TMPL_' + n.upper().replace('_', ''): names.index(n) * TMPLSZ
               for n in ('hq_p', 'bar_p', 'bar_e', 'fact_p', 'fact_e', 'ref_p', 'ref_e',
-                        'radar_p', 'pp_e', 'harv_p')},
+                        'radar_p', 'pp_e', 'pp_p', 'harv_p')},
            'BARSEGS': BARSEGS, 'ICONWB': ICONWB,
            'RADOFFADDR': labeladdr + radoff,
            'MAPNAMES': labeladdr + mapnames, 'MAPNAMEW': 48, 'MAPNAMEH': OPT_BTN_H,

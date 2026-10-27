@@ -25,8 +25,8 @@ local function structures(tag)
   end
 end
 -- placement spots (top-left tiles) near the command center at (2..4, 18..20)
--- (the war factory stands at (5..6, 16..17))
-local PP, BAR, TUR, WATER = {2, 16}, {2, 21}, {8, 20}, {13, 12}
+-- (not at (5..6, 16..17): that is where the war factory goes in other tests)
+local PP, BAR, TUR, WATER = {2, 16}, {2, 21}, {7, 20}, {13, 12}
 local function pptiles(tag)
   print(string.format("  %s: tiles (%d,%d) to (%d,%d) passable:", tag, PP[1], PP[2], PP[1] + 1, PP[2] + 1),
     passable(PP[1], PP[2]), passable(PP[1] + 1, PP[2]), passable(PP[1], PP[2] + 1), passable(PP[1] + 1, PP[2] + 1))

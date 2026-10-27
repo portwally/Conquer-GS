@@ -124,15 +124,18 @@ Most print their findings and end with `problems: 0` when all is well.
   the game ends; prints when the first wave left, when the command center
   was first hit, when the game ended and what the enemy built, then clicks
   to restart.
-- `tools/defendtest.lua` (900 s): a simple defense (two turrets, then tanks
-  while there is money) for up to 8 minutes.
+- `tools/defendtest.lua` (900 s): a simple defense (two turrets, a
+  barracks and a war factory, then tanks while there is money) for up to 8
+  minutes.
 - `tools/wintest.lua` (400 s): removes the enemy's units and its other
   buildings and destroys the barracks with one tank, then prints how long a
   new game takes to start after the click (about 2.5 seconds).
-- `tools/bldtest.lua` (200 s): the new buildings: the radar is off (and
-  says so) until a radar center stands, then on, and off again with too
-  little power; a refinery comes with a harvester and a second dock where
-  harvesters unload; a guard tower stands like a turret; tanks roll out of
+- `tools/bldtest.lua` (200 s): the new buildings (built at once by the
+  script, `G.quickbuild`): we start with a command center only, the war
+  factory needs a barracks; the radar is off (and says so) until a radar
+  center stands, then on, and off again with too little power; a refinery
+  comes with a harvester and a second dock where harvesters unload; a
+  guard tower stands like a turret; tanks roll out of
   the war factory, and after it is sold none can be built. Then the enemy:
   infantry out of its barracks, vehicles out of its war factory, none of
   those once the factory is gone, no income without its refinery and half
@@ -145,8 +148,9 @@ Most print their findings and end with `problems: 0` when all is well.
   and repairs them (checking hit points against the credits paid, the
   pressed button and the cursors), sells both (checking the refund, power
   and that their tiles open up), then tries a repair without enough credits.
-- `tools/typetest.lua` (200 s): builds a buggy, a barracks and a rocket
-  soldier and checks their stats, times the buggy and a tank over open
+- `tools/typetest.lua` (200 s): a barracks and a war factory (at once),
+  then builds a buggy and a rocket soldier and checks their stats,
+ times the buggy and a tank over open
   ground, then sets up single fights to check the damage of each weapon
   against each kind of armor.
 - `tools/blocktest.lua` (200 s): boxes a new buggy in by the war factory

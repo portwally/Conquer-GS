@@ -7241,10 +7241,13 @@ ai       lda   frame            ; AIINCOME credits every 8 frames, while
 :c2      inx
          inx
          bra   :count
-:counted lda   wavesize         ; (no room for more units: it goes
-         ldx   aistuck          ;   with what it has, AIWAVE0 at least)
+:counted jsr   aicount          ; at its limit of units, or no room for
+         cmp   aimax            ;   more: it goes with what it has,
+         bcs   :few             ;   AIWAVE0 at least (else it could wait
+         lda   wavesize         ;   for ever with some of them away)
+         ldx   aistuck
          beq   :need
-         lda   aiwave0
+:few     lda   aiwave0
 :need    sta   aineed
          lda   tmp
          cmp   aineed

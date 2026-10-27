@@ -149,8 +149,9 @@ The starting buildings come from the map like the units.
 
 A building's door is the tile below its bottom-left corner. Units come out
 by the door of the building they need (`findbld`): soldiers a barracks,
-vehicles a war factory, for both sides; without one, its icons are greyed
-out. Our harvesters unload at a dock: the one next to the command center
+vehicles a war factory, for both sides, and a war factory a barracks (the
+template's "needs" works for structures too); without one, its icons are
+greyed out. Our harvesters unload at a dock: the one next to the command center
 or one in front of a refinery (its door). `calcpower` keeps the list of
 docks along with the power; a harvester heads for the nearest (column plus
 row distance), and if that refinery is gone on the way, for the next. No
@@ -217,15 +218,21 @@ units as its first. The numbers per difficulty (`DIFFICULTIES` in
 | wave size, first to most | 2 to 4 | 3 to 5 | 3 to 6 |
 | its units out at once, at most | 5 | 6 | 8 |
 
-How hard that is (`tools/aitest.lua`): on Green Valley a player who does
-nothing loses after about 6 2/3 minutes on EASY, 2 3/4 on NORMAL and
-3 1/2 on HARD (its waves stop to shoot at our war factory on the way, and
-our starting units fight back meanwhile); on River Crossing after about
-3 1/2 minutes on NORMAL and 2 3/4 on HARD; on Twin Lakes 2 3/4 and 2 1/4;
-on Stone Pass 2 3/4 and 2. Two turrets by the
-command center and a few tanks hold the base through the 8 minutes
-`tools/defendtest.lua` plays, on NORMAL and on HARD without a scratch on
-the command center.
+How hard that is (`tools/aitest.lua`): a player who does nothing loses
+after about this many minutes.
+
+| | EASY | NORMAL | HARD |
+|---|---:|---:|---:|
+| Green Valley | 4 3/4 | 2 3/4 | 2 |
+| River Crossing (the way over a ford is long) | 6 | 4 1/2 | 3 1/2 |
+| Twin Lakes | 3 3/4 | 2 3/4 | 2 1/4 |
+| Stone Pass | 5 | 2 3/4 | 2 1/4 |
+
+At its limit of units the enemy sends what it has, so units held up
+somewhere can't stop it from attacking. Two turrets by the command center,
+then a barracks, a war factory and a few tanks hold the base through the 8
+minutes `tools/defendtest.lua` plays: on NORMAL without a scratch on the
+command center, on HARD with a few.
 
 You win when every enemy unit and building is gone, and lose when your
 command center falls.
@@ -246,7 +253,7 @@ structure (it stays ready), selling or repairing.
 Each map is painted from a few shapes in `tools/makegfx.py`
 (`green_valley`, `river_crossing`, `twin_lakes`, `stone_pass`; the border
 is impassable) and described
-in `MAPS`: its starting buildings (our command center and war factory; the
+in `MAPS`: its starting buildings (our command center; the
 enemy's barracks, war factory, refinery and power plant) and units, where
 harvesters unload, where new units appear when no building makes them and
 the first view.
@@ -273,7 +280,10 @@ picture, a preview picture (the radar's without the enemy's base pad), the
 starting buildings' pieces and the starting units. When a game starts the
 chosen map's block is unpacked into `mapblk` in the program and its radar
 picture into the sidebar layer, so the code works on whichever map it is.
-The tiles of all the maps share one tile set. A table made with
+`map_checks` makes sure that nothing stands where it shouldn't and that
+every building's door, the dock and the exit can be reached from the rest
+of the map (units step only straight past wall corners). The tiles of all
+the maps share one tile set. A table made with
 CONQUER.DATA (`maptab.bin`) gives each map's block.
 
 ## The options screen

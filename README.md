@@ -37,7 +37,7 @@ with Ensoniq sound and music.
 | | |
 |---|---|
 | ![The start of a game](docs/images/start.png) | ![A base](docs/images/base.png) |
-| The start of a game on Green Valley: a command center and a war factory | A base with a radar center, a refinery, a guard tower and a turret |
+| The start of a game on Green Valley: a command center and your first units | A base with a radar center, a refinery, a guard tower and a turret |
 | ![An attack on the base](docs/images/defense.png) | ![The enemy's base](docs/images/enemy-base.png) |
 | The enemy attacks; the turret and the guard tower fire back | The enemy's base: barracks, war factory, refinery, power plant and guard towers |
 | ![A battle](docs/images/battle.png) | ![River Crossing](docs/images/river-crossing.png) |
@@ -109,7 +109,7 @@ Then click START or press RETURN. Your choices are kept for the next game.
 
 ### Economy and power
 
-- You start with 2500 credits, a command center and a war factory. Your
+- You start with 2500 credits and a command center, plus a few units. Your
   harvester mines the nearest ore on its own (25 credits a scoop, 500 a
   load) and unloads at the nearest dock: the one next to your command
   center, or the one in front of a refinery. Click an ore field to send it
@@ -130,7 +130,8 @@ Then click START or press RETURN. Your choices are kept for the next game.
 ### Units
 
 Vehicles come out of a war factory, soldiers out of a barracks; without
-one, their icons are greyed out.
+one, their icons are greyed out. A war factory can only be built once you
+have a barracks.
 
 | Unit | Cost | Build time | Hit points | Range | Weapon | |
 |---|---:|---:|---:|---:|---|---|
@@ -147,7 +148,8 @@ one, their icons are greyed out.
 | Power plant | 300 | 6 s | 2x2 | +100 | |
 | Barracks | 500 | 8 s | 2x2 | -30 | trains soldiers |
 | Refinery | 1500 | 10 s | 2x2 | -30 | a dock for harvesters; comes with one |
-| War factory | 1000 | 10 s | 2x2 | -30 | builds vehicles |
+| War factory | 1000 | 10 s | 2x2 | -30 | builds vehicles; needs a barracks |
+
 | Radar center | 800 | 8 s | 2x2 | -40 | turns the radar on |
 | Turret | 600 | 8 s | 1x1 | -40 | 200 hit points, cannon 20, range 4 |
 | Guard tower | 400 | 5 s | 1x1 | -10 | 150 hit points, machine gun 6, range 3 |

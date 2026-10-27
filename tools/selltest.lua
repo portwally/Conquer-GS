@@ -18,7 +18,7 @@ local I = dofile("build/gfx/icons.lua")
 local icon = {pp = I.pp_p, turret = I.turret_p}
 local SELLBTN = {(E.SELLX0 + E.SELLX1) // 2, (E.BTNY0 + E.BTNY1) // 2}
 local REPBTN = {(E.REPX0 + E.REPX1) // 2, (E.BTNY0 + E.BTNY1) // 2}
-local PP, TUR = {2, 16}, {8, 20}        -- (the war factory is at (5..6, 16..17))
+local PP, TUR = {2, 16}, {7, 20}
 local pp, tur
 local function placexy(spot, size)
   local x, y = G.tilexy(spot[1], spot[2])

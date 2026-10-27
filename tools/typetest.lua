@@ -1,5 +1,5 @@
--- Unit types test: build a buggy, a barracks and a rocket soldier from the
--- sidebar; check their stats, the buggy's speed against a tank's, then
+-- Unit types test: a barracks and a war factory (built at once), then a
+-- buggy and a rocket soldier from the sidebar; check their stats, the buggy's speed against a tank's, then
 -- single fights in open ground checking the damage of each weapon against
 -- each kind of armor. Dumps a screen to build/mame/t1_fight.bin.
 local G = dofile("tools/gs.lua")
@@ -35,9 +35,10 @@ local BAR = {2, 21}
 local buggy, rocket
 
 G.at(700, function() G.seeall() end)
-G.click(705, I.buggy_p[1], I.buggy_p[2])                -- unit queue: a buggy
-G.click(715, I.bar_p[1], I.bar_p[2])                    -- structure queue: barracks
-G.at(1100, function()
+G.quickbuild(705, I.bar_p, BAR[1], BAR[2], 2)            -- a barracks, then
+G.quickbuild(760, I.fact_p, 5, 16, 2)                    --   a war factory
+G.click(815, I.buggy_p[1], I.buggy_p[2])                -- a buggy
+G.at(1130, function()
   buggy = find(E.SPR_BUGGY_P)
   check(buggy, "buggy built")
   if buggy then
@@ -75,14 +76,9 @@ local function speedtest(f0, unit, tag, want)
     watch = nil
   end)
 end
-speedtest(1110, function() return buggy end, "buggy", 8)
-G.click(1210, I.bar_p[1], I.bar_p[2])                   -- place the barracks
-G.at(1222, function() G.clear(BAR[1], BAR[2], 2) end)
-G.at(1224, function()
-  local x, y = G.tilexy(BAR[1], BAR[2]); G.click(1225, x + 8, y + 8)
-end)
+speedtest(1140, function() return buggy end, "buggy", 8)
 G.click(1245, I.rock_p[1], I.rock_p[2])                 -- a rocket soldier
-speedtest(1260, function() return 1 end, "tank", 16)
+speedtest(1300, function() return 1 end, "tank", 16)
 G.at(1600, function()
   rocket = find(E.SPR_ROCK_P)
   check(rocket, "rocket soldier built")
