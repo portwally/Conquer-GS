@@ -32,6 +32,7 @@ sub = emu.add_machine_frame_notifier(function()
     mem:write_u16(V.AICREDITS, 5000)
     mem:write_u16(V.AIWAIT, 0); mem:write_u16(V.AIMAX, V.MAXUNITS)
   end
+  if f == 700 then mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end   -- (radar on)
   if f == 700 and os.getenv("FT_NOFOG") then mem:write_u16(V.SEEALL, 1) end
   if f >= 700 and os.getenv("FT_ALL") then         -- as stress.lua STRESS_ALL:
     mem:write_u16(V.UHP + mem:read_u16(V.HQUNIT), 400)     -- nobody dies, so

@@ -8,6 +8,7 @@
 --   G.unitxy(i)                       screen x, y of the middle of unit i
 --   G.seeall()                        lift the fog of war
 --   G.seen(t)                         has world tile t been seen?
+--   G.radar()                         the radar on without a radar center
 --   G.run(last)                       start; exit MAME after frame `last`
 -- G.V holds the addresses (tools/vars.lua), G.f the current frame.
 local G = {}
@@ -68,6 +69,8 @@ function G.clear(c0, r0, size)
   end end
 end
 function G.seeall() mem:write_u16(V.SEEALL, 1) end     -- no fog from the next frame
+-- G.radar(): the radar works without a radar center (from the next frame)
+function G.radar() mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end
 function G.seen(t) return mem:read_u16(V.FOG + 2 * t) & V.UNSEEN == 0 end
 function G.tilexy(col, row)
   return (col - G.w(V.CAMX)) * 16 + 8, (row - G.w(V.CAMY)) * 16 + 16

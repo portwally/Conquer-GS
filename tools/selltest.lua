@@ -18,7 +18,7 @@ local I = dofile("build/gfx/icons.lua")
 local icon = {pp = I.pp_p, turret = I.turret_p}
 local SELLBTN = {(E.SELLX0 + E.SELLX1) // 2, (E.BTNY0 + E.BTNY1) // 2}
 local REPBTN = {(E.REPX0 + E.REPX1) // 2, (E.BTNY0 + E.BTNY1) // 2}
-local PP, TUR = {5, 16}, {8, 20}
+local PP, TUR = {2, 16}, {8, 20}        -- (the war factory is at (5..6, 16..17))
 local pp, tur
 local function placexy(spot, size)
   local x, y = G.tilexy(spot[1], spot[2])
@@ -150,7 +150,8 @@ G.at(2490, function()
   report("pp sold")
   check(credits() == before + 150, "150 back for the power plant")
   check(G.w(V.UFLAGS, pp) & V.F_DEAD ~= 0, "power plant gone")
-  check(passable(5, 16) and passable(6, 16) and passable(5, 17) and passable(6, 17), "its tiles open")
+  check(passable(PP[1], PP[2]) and passable(PP[1] + 1, PP[2]) and passable(PP[1], PP[2] + 1)
+        and passable(PP[1] + 1, PP[2] + 1), "its tiles open")
   check(G.w(V.PWRMADE) == made - 100, "100 less power made")
   G.dump("r2_sold")
   local x, y = G.tilexy(10, 14); G.click(2491, x, y)       -- empty ground: done

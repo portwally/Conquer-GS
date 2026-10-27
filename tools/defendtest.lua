@@ -18,7 +18,7 @@ local function report(tag)
   print(string.format("%-8s game %4.0f s: credits=%4d player units=%2d enemy=%2d (attacking %d) wave=%d HQ hp=%d over=%d",
     tag, G.w(V.FRAME) / 60, G.w(V.CREDITS), pl, en, amove, G.w(V.WAVESIZE), hp(G.w(V.HQUNIT) // 2), G.w(V.GAMEOVER)))
 end
-local spots = {{6, 16}, {7, 19}}              -- turrets, top-left tiles
+local spots = {{7, 17}, {7, 19}}              -- turrets, top-left tiles
 local turrets = 0
 local function placexy(spot) return G.tilexy(spot[1], spot[2]) end
 G.at(700, function() report("start") end)

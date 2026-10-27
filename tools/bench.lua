@@ -56,6 +56,7 @@ sub = emu.add_machine_frame_notifier(function()
   local nf = tick()
   if nf == f then return end       -- still loading
   f = nf
+  if f == 700 then mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end   -- (radar on)
   if f >= 700 then
     mem:write_u16(V.AICREDITS, 5000)
     mem:write_u16(V.AIWAIT, 0); mem:write_u16(V.AIMAX, V.MAXUNITS)   -- no pauses or cap

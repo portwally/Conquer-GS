@@ -1,5 +1,6 @@
--- Win test: remove the enemy's units, weaken its barracks, send a tank
--- across the world to destroy it; then click to play again.
+-- Win test: remove the enemy's units and all its buildings but the
+-- barracks, weaken that, send a tank across the world to destroy it;
+-- then click to play again.
 local G = dofile("tools/gs.lua")
 local V = G.V
 local ended, restarted
@@ -13,9 +14,19 @@ G.at(700, function()
   local n = G.w(V.NUNITS) // 2
   for i = 0, n - 1 do
     local fl = G.w(V.UFLAGS, i)
-    if fl & V.F_PLAYER == 0 and fl & V.F_BUILDING == 0 then
+    if fl & V.F_PLAYER == 0 and i ~= G.w(V.BARUNIT) // 2 then
       G.sw(V.UFLAGS, i, fl | V.F_DEAD | 0x8000)
       G.mem:write_u16(V.OCC + 2 * G.w(V.UTILE, i), 0)
+      local tiles = {G.w(V.UTILE, i)}                   -- (its footprint gone too)
+      if fl & V.F_BUILDING ~= 0 then
+        tiles = {}
+        local t0, size = G.w(V.UCARGO, i), G.w(V.USTATE, i)
+        for r = 0, size - 1 do for c = 0, size - 1 do tiles[#tiles + 1] = t0 + r * 32 + c end end
+      end
+      for _, t in ipairs(tiles) do
+        G.mem:write_u8(V.OVERLAY + t, 0)
+        G.mem:write_u8(V.PASSW + t, G.mem:read_u8(V.PASSMAP + t))
+      end
     end
   end
   G.sw(V.UHP, G.w(V.BARUNIT) // 2, 40)

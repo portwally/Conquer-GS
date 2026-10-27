@@ -34,6 +34,7 @@ sub = emu.add_machine_frame_notifier(function()
     mem:write_u16(V.AICREDITS, 5000)               -- between waves, no cap
     mem:write_u16(V.AIWAIT, 0); mem:write_u16(V.AIMAX, V.MAXUNITS)
   end
+  if f == 700 then mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end   -- (radar on)
   if f == 700 and os.getenv("STRESS_NOFOG") then mem:write_u16(V.SEEALL, 1) end
   if f >= 700 then                               -- nobody wins: keep the
     mem:write_u16(V.UHP + w(V.HQUNIT), 400)        -- bases and the player's

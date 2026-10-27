@@ -52,5 +52,6 @@ sub = emu.add_machine_frame_notifier(function()
   if nf == f then return end       -- still loading
   f = nf
   if f >= 600 then mem:write_u16(V.AICREDITS, 0) end
+  if f == 700 then mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end   -- (radar on)
   if steps[f] then steps[f]() end
 end)

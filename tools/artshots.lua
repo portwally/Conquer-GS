@@ -4,7 +4,7 @@
 local G = dofile("tools/gs.lua")
 local V = G.V
 G.at(700, function() G.dump("art_base") end)
-G.at(702, function() G.seeall(); G.look(16, 0) end)
+G.at(702, function() G.seeall(); G.radar(); G.look(16, 0) end)
 G.at(790, function() G.dump("art_enemy") end)
 G.at(792, function()                     -- our tanks and soldiers drop in
   G.teleport(0, 21, 8); G.teleport(1, 22, 9)

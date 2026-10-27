@@ -35,7 +35,7 @@ after ProDOS has booted (the title 3.3 s, CONQUER.DATA 3.1 s, CONQUER.SOUND
 
 ### Memory
 
-The game needs a IIgs with at least 1 MB (banks up to $08).
+The game needs a IIgs with at least 1 MB (banks up to $09).
 
 | Bank | What |
 |------|------|
@@ -44,9 +44,10 @@ The game needs a IIgs with at least 1 MB (banks up to $08).
 | $02 | the background of the top bar and sidebar |
 | $03 | the top bar and sidebar layer, with a copy of the radar's terrain at +$8000 |
 | $04, $05 | the two end-of-game banners |
-| $06 | the compiled sprites and tiles, and the screen copier at $F000 |
-| $07 | the sprite and tile pixels, then the name tags |
+| $06 | the compiled sprites, and the screen copier at $F000 |
+| $07 | the sprite and tile pixels, then the name tags and the radar's "offline" picture |
 | $08 | CONQUER.DATA as loaded (up to 64K) |
+| $09 | the compiled map tiles |
 | $E1 | the visible Super Hi-Res screen |
 
 Game state lives at fixed addresses in bank 0, so test scripts can read it:
@@ -99,7 +100,10 @@ step takes about 12 frames.
 
 The radar is drawn once in full after the view moves. After that, every 32
 frames it redraws only dots whose unit moved, appeared or died (a few per
-frame), each pixel as terrain, then dots, then the view frame on top.
+frame), each pixel as terrain, then dots, then the view frame on top. It
+works only while we have a radar center and enough power (`radaron`, set
+by `calcpower` whenever our buildings change); otherwise it shows its
+"offline" picture and a click on it does nothing.
 
 ### Fog of war
 
@@ -125,7 +129,29 @@ Each unit type has four sprites one after the other: facing right, left
 (the same, mirrored), up and down; the flags F_LEFT and F_VERT pick one.
 A unit turns left or right when its next tile is in another column, up or
 down when it moves straight up or down, and toward its target (the way it
-is furthest) when it shoots; turrets turn too.
+is furthest) when it shoots; turrets and guard towers turn too.
+
+### Structures
+
+Everything that can be built has a template (`templates()` in
+`tools/makegfx.py`, 30 bytes each): sprite, flags, speed, hit points,
+weapon, cost, build time, size, power, armor and weapon class, name tag,
+and the template of the building it needs. Turrets and guard towers are
+units that never move (F_STATIC); the other structures are buildings
+(F_BUILDING): their slot's sprite is their template, its cargo and state
+words hold the top-left tile and size of their footprint (walled off in
+the passability table), and they are drawn as 16x16 pieces with the map.
+The starting buildings come from the map like the units.
+
+A building's door is the tile below its bottom-left corner. Units come out
+by the door of the building they need (`findbld`): soldiers a barracks,
+vehicles a war factory, for both sides; without one, its icons are greyed
+out. Our harvesters unload at a dock: the one next to the command center
+or one in front of a refinery (its door). `calcpower` keeps the list of
+docks along with the power; a harvester heads for the nearest (column plus
+row distance), and if that refinery is gone on the way, for the next. No
+structure may be placed on a dock, and units parked on one move aside. A
+refinery comes with a harvester.
 
 ### Pathfinding
 
@@ -161,10 +187,15 @@ fog).
 
 ## The enemy
 
-The enemy starts with some credits, earns a steady trickle more and builds
-soldier, rocket soldier, tank, soldier, buggy, rocket soldier, over and
-over, at its barracks, with at most a few of the units it built alive at
-once. New units gather there. After a while its first attack wave leaves;
+The enemy's base has a barracks, a war factory, a refinery, a power plant,
+a turret and two guard towers. It starts with some credits, earns a steady
+trickle more while its refinery stands and builds soldier, rocket soldier,
+tank, soldier, buggy, rocket soldier, over and over - infantry at its
+barracks, vehicles at its war factory, skipping what it has no building
+for, at half speed without its power plant - with at most a few of the
+units it built alive at once. New units gather by their building's door
+(`standing` checks that a building in a remembered slot is still the one
+it was). After a while its first attack wave leaves;
 after that, waves go at least some seconds apart, one unit bigger each time
 up to a limit, and units beyond the wave's size stay home. A wave marches on
 the command center, fighting anything it meets on the way. Its starting
@@ -182,20 +213,26 @@ units as its first. The numbers per difficulty (`DIFFICULTIES` in
 | wave size, first to most | 2 to 4 | 3 to 5 | 3 to 6 |
 | its units out at once, at most | 5 | 6 | 8 |
 
-How hard that is: on Green Valley a player who does nothing loses after
-about 4 3/4 minutes on EASY, 2 3/4 on NORMAL and 2 on HARD; on River
-Crossing the enemy's way over a ford is longer (about 2 3/4 minutes on
-NORMAL and on HARD). Two turrets by the command center and a few tanks hold
-the base through the 8 minutes `tools/defendtest.lua` plays: on NORMAL
-without a scratch on the command center, on HARD slowly losing units if the
-harvester is lost and nothing is rebuilt.
+How hard that is (`tools/aitest.lua`): on Green Valley a player who does
+nothing loses after about 6 2/3 minutes on EASY, 2 3/4 on NORMAL and
+3 1/2 on HARD (its waves stop to shoot at our war factory on the way, and
+our starting units fight back meanwhile); on River Crossing after about
+3 1/2 minutes on NORMAL and 2 3/4 on HARD. Two turrets by the
+command center and a few tanks hold the base through the 8 minutes
+`tools/defendtest.lua` plays, on NORMAL and on HARD without a scratch on
+the command center.
+
+You win when every enemy unit and building is gone, and lose when your
+command center falls.
 
 ## Maps
 
 Each map is painted from a few shapes in `tools/makegfx.py`
 (`green_valley`, `river_crossing`; the border is impassable) and described
-in `MAPS`: its starting buildings and units, where harvesters unload, where
-new units appear and the first view.
+in `MAPS`: its starting buildings (our command center and war factory; the
+enemy's barracks, war factory, refinery and power plant) and units, where
+harvesters unload, where new units appear when no building makes them and
+the first view.
 
 - Green Valley: our base in the south-west, the enemy's in the north-east;
   a river from the north ends in a lake in the middle, with roads around it.
@@ -310,9 +347,15 @@ the enemy red.
   ground, and where one part meets a lower one it gets a dark line. The
   command center (a hall with a radar dome and a command tower flying a
   flag, on its 3x3 pad), the barracks (a Quonset hut with a porch and
-  sandbags), the power plant (a hall with two cooling towers), the turret (a
-  gun dome on a concrete base, its barrel facing each of the four ways) and
-  the sidebar icons of the power plant and barracks are made this way.
+  sandbags), the power plant (a hall with two cooling towers), the war
+  factory (a long hall with a big door, a control room and a stack), the
+  refinery (a hall with an unloading bay and two silos), the radar center
+  (a dish on a mast, tilted toward the viewer), the turret (a gun dome on a
+  concrete base, its barrel facing each of the four ways) and the guard
+  tower (a small tower with a machine gun on its platform) are made this
+  way. The sidebar's 16x16 icons of the structures are the same models at
+  half size (each 2x2x2 block becomes one, in its most telling material).
+
 - The terrain tiles (grass, dirt roads, water, ore, trees, rocks, concrete)
   are drawn procedurally, with edges where they meet other ground.
 - The options screen, the name tags, the banners and the fonts are drawn

@@ -105,9 +105,10 @@ Most print their findings and end with `problems: 0` when all is well.
 - Most use `tools/gs.lua` for clicks, frame steps and reading the unit
   tables. It switches memory reads back to main RAM while a script looks at
   the game, because a frame can end in the middle of the screen copy, which
-  runs with bank 0 mapped to bank 1. The scripts move the view and lift the
-  fog through small hooks the game checks at the start of each frame
-  (`G.look`, `G.seeall`). Since parked units step aside for others, the
+  runs with bank 0 mapped to bank 1. The scripts move the view, lift the
+  fog and turn the radar on without a radar center through small hooks the
+  game checks (`G.look`, `G.seeall`, `G.radar`). Since parked units step
+  aside for others, the
   tests that place structures first clear the spot (`G.clear()`) and park
   the harvester.
 - Build icon positions come from `build/gfx/icons.lua`, the options screen's
@@ -125,9 +126,17 @@ Most print their findings and end with `problems: 0` when all is well.
   to restart.
 - `tools/defendtest.lua` (900 s): a simple defense (two turrets, then tanks
   while there is money) for up to 8 minutes.
-- `tools/wintest.lua` (400 s): removes the enemy's units and destroys the
-  barracks with one tank, then prints how long a new game takes to start
-  after the click (about 2.5 seconds).
+- `tools/wintest.lua` (400 s): removes the enemy's units and its other
+  buildings and destroys the barracks with one tank, then prints how long a
+  new game takes to start after the click (about 2.5 seconds).
+- `tools/bldtest.lua` (200 s): the new buildings: the radar is off (and
+  says so) until a radar center stands, then on, and off again with too
+  little power; a refinery comes with a harvester and a second dock where
+  harvesters unload; a guard tower stands like a turret; tanks roll out of
+  the war factory, and after it is sold none can be built. Then the enemy:
+  infantry out of its barracks, vehicles out of its war factory, none of
+  those once the factory is gone, no income without its refinery and half
+  speed without its power plant.
 - `tools/buildtest.lua` (200 s): builds and places a power plant (after a
   refused spot on water), a barracks and a turret, trains a soldier, then has
   an enemy tank destroy the power plant, printing power, queues and the
@@ -140,13 +149,16 @@ Most print their findings and end with `problems: 0` when all is well.
   soldier and checks their stats, times the buggy and a tank over open
   ground, then sets up single fights to check the damage of each weapon
   against each kind of armor.
-- `tools/blocktest.lua` (200 s): boxes a new buggy in at the exit with
-  parked units and checks it gets out, then holds the units around a tank in
-  place and checks it keeps its order and gets through once they can move.
+- `tools/blocktest.lua` (200 s): boxes a new buggy in by the war factory
+  with parked units and checks it gets out, then holds the units around a
+  tank in place and checks it keeps its order and gets through once they
+  can move.
 - `tools/econtest.lua` (200 s): watches the harvester for a few minutes and
   builds a tank, printing credits and the harvester's state.
 - `tools/scrolltest.lua` (200 s): scrolls with the mouse at the screen
-  edge, jumps with a radar click and sends a tank across the world.
+  edge, jumps with a radar click (the radar turned on by the script) and
+  sends a tank across the world.
+
 - `tools/fogtest.lua` (200 s): the fog of war: what is seen at the start,
   that the enemy base is black with its units hidden and unclickable; then a
   tank goes there while the script checks that the fog table, the black

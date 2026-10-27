@@ -68,6 +68,7 @@ UIBANK   equ   $03              ; unpacked top bar and sidebar
 WINBANK  equ   $04              ; unpacked end-of-game banners
 LOSEBANK equ   $05
 CODEBANK equ   $06              ; compiled sprites
+TILEBANK equ   $09              ; compiled map tiles
 SPRBANK  equ   $07              ; unpacked sprite pixels (from $0000)
 DOCDEST  equ   $FF              ; loadfile: "bank" meaning DOC sound RAM
 DATABANK equ   $08              ; CONQUER.DATA as loaded, at DATAADDR
@@ -245,7 +246,7 @@ radlist  equ   ury+UTAB         ; drawradar: dots to redraw, x and y
 RADLMAX  equ   40               ;   (+$8000: 2 wide, +$4000: 2 high);
                                 ;   40 at most, else redraw it all
 iconok   equ   radlist+$A0      ; per icon: drawn as available
-uclass   equ   iconok+$10       ; per unit: armor class (bits 0-1:
+uclass   equ   iconok+$18       ; per unit: armor class (bits 0-1:
                                 ;   infantry, vehicle, building) and
                                 ;   weapon class * 4 (gun, machine gun,
                                 ;   rockets); see fire
@@ -270,7 +271,19 @@ mlast    equ   mtr+MTRSZ        ;   per tone voice: volume last written
 mvc      equ   mlast+$6         ;   VERTCNT when musictick last looked
 slamfrom equ   mvc+$2           ; slam: the first line's address, and
 slamrows equ   slamfrom+$2      ;   how many lines
-VARSEND  equ   slamrows+$2
+udock    equ   slamrows+$2      ; per harvester: the dock it heads for
+NDOCKS   equ   8                ; docks: where our harvesters unload -
+docks    equ   udock+UTAB       ;   by the command center, then at each
+ndocks   equ   docks+{NDOCKS*2} ;   refinery (see calcpower); how many * 2
+radaron  equ   ndocks+$2        ; the radar works: a radar center and
+radhave  equ   radaron+$2       ;   enough power (calcpower)
+radoff   equ   radhave+$2       ; drawradar: the radar is shown off
+radarall equ   radoff+$2        ; test scripts: nonzero = radar without
+                                ;   a radar center
+factunit equ   radarall+$2      ; the enemy's war factory, refinery and
+refunit  equ   factunit+$2      ;   power plant (unit * 2; see standing)
+ppunit   equ   refunit+$2
+VARSEND  equ   ppunit+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -391,8 +404,8 @@ mwy      equ   $FE
 credits  equ   $40              ; money
 shown    equ   $42              ; credits as last drawn
 slot     equ   $4C              ; unit * 2 for a new unit
-hqunit   equ   $4E              ; the player's command center (unit * 2)
-barunit  equ   $50              ; the enemy barracks (unit * 2)
+hqunit   equ   $4E              ; the player's command center (unit * 2;
+barunit  equ   $50              ;   see standing), the enemy barracks
 gameover equ   $52              ; 0 = playing, 1 = won, 2 = lost
 aicredits equ  $54              ; enemy money
 aibuild  equ   $56              ; template the enemy is building, or NONE
@@ -434,7 +447,8 @@ shownused equ  $20
 lowpower equ   $22              ; nonzero: using more than made
 bsize    equ   $24              ; footprint size scratch
 glyphs0  equ   $0C              ; putnum: first glyph of the color
-ftile    equ   $0E              ; findbarracks result
+ftile    equ   $0E              ; findbld: scratch
+
 grange   equ   $08              ; pathto: 0 = reach goal, else get within
                                 ;   this many tiles of it (reset by pathto)
 jobrange equ   $06              ; the search's range,
@@ -565,7 +579,8 @@ restart  lda   #0               ; clear our variables
          inx
          inx
          bra   :over
-:overd   lda   camx0            ; the first view
+:overd   jsr   initblds
+         lda   camx0            ; the first view
          sta   camx
          lda   camy0
          sta   camy
@@ -3194,6 +3209,15 @@ sprat    stx   sprbanks
          tax
          ldal  SPCODE,x
          sta   jmpvec
+         sep   #$20             ; its code: a sprite's in CODEBANK, a
+         mx    %10              ;   tile's in TILEBANK
+         lda   #CODEBANK
+         cpx   #NSPRITES*2
+         bcc   :bank
+         lda   #TILEBANK
+:bank    sta   jmpvec+2
+         rep   #$20
+         mx    %00
          phb
          lda   sprbanks
          pha
@@ -3221,7 +3245,13 @@ compile  lda   #CODEBANK
          cmp   #NSPRITES+NTILES*2
          bcc   :one
          rts
-:one     cmp   #NSPRITES*2      ; map tiles: every word drawn as is
+:one     cmp   #NSPRITES*2      ; the first map tile: the tiles' code
+         bne   :same            ;   goes into TILEBANK, from its start
+         lda   #TILEBANK
+         sta   cptr+2
+         ldy   #0
+         lda   sidx
+:same    cmp   #NSPRITES*2      ; map tiles: every word drawn as is
          lda   #0
          rol
          sta   opaque
@@ -3546,7 +3576,8 @@ harvest  lda   ustate,x
          bcs   :gohome
          rts
 
-:gohome  lda   dock
+:gohome  jsr   nearestdock      ; to the nearest dock
+         sta   udock,x
          sta   goal
          stz   avoid
          jsr   pathto
@@ -3558,12 +3589,15 @@ harvest  lda   ustate,x
 :home    lda   unext,x          ; mid-step?
          bpl   :rts2
          lda   utile,x
-         cmp   dock
+         cmp   udock,x
          beq   :dock
-         lda   ureload,x        ; every 30 frames: is the dock blocked?
-         bne   :rts2
+         lda   ureload,x        ; every 30 frames: is its refinery gone,
+         bne   :rts2            ;   or the dock blocked?
          lda   #30
          sta   ureload,x
+         lda   udock,x
+         jsr   isdock
+         bcc   :gohome
          jsr   nudge
          ldx   self
          lda   ugoal,x
@@ -3598,8 +3632,54 @@ harvest  lda   ustate,x
          sta   ustate,x
          rts
 
-* nudge: X = harvester. A unit parked on the dock moves aside.
-nudge    lda   dock
+* nearestdock: X = harvester -> A = the dock nearest to it (column plus
+* row distance; keeps X)
+nearestdock
+         lda   utile,x
+         and   #MAPW-1
+         sta   col
+         lda   utile,x
+         lsr
+         lsr
+         lsr
+         lsr
+         lsr
+         sta   row
+         lda   #$7FFF
+         sta   tmp3
+         ldy   #0
+:loop    lda   docks,y
+         and   #MAPW-1
+         sec
+         sbc   col
+         jsr   absval
+         sta   tmp
+         lda   docks,y
+         lsr
+         lsr
+         lsr
+         lsr
+         lsr
+         sec
+         sbc   row
+         jsr   absval
+         clc
+         adc   tmp
+         cmp   tmp3
+         bcs   :next
+         sta   tmp3
+         lda   docks,y
+         sta   tmp2
+:next    iny
+         iny
+         cpy   ndocks
+         bcc   :loop
+         lda   tmp2
+         rts
+
+* nudge: X = harvester. A unit parked on its dock moves aside.
+nudge    lda   udock,x
+         sta   clicked
          asl
          tay
          lda   occ,y
@@ -3617,10 +3697,8 @@ nudge    lda   dock
          pha
          tyx
          stx   self
-         jsr   clearclaimed     ; claims the dock, so it won't stay
-         lda   dock
-         sta   clicked
-         jsr   pickgoal
+         jsr   clearclaimed     ; claims the docks, so it won't stay
+         jsr   pickgoal         ;   (clicked: the dock)
          bcc   :done
          sta   goal
          stz   avoid
@@ -3912,7 +3990,7 @@ iconclick
          sta   qtime,x
          lda   icons+10,y       ; empty progress bar
          tax
-         lda   #10
+         lda   #BARSEGS
          sta   tmp
          sep   #$20
          mx    %10
@@ -3941,7 +4019,7 @@ prodq    lda   qicon,x
 :rts0    rts
 :busy
          lda   qseg,x
-         cmp   #10
+         cmp   #BARSEGS
          bcs   :done
          lda   lowpower         ; low power: half speed
          beq   :tick
@@ -3981,12 +4059,12 @@ prodq    lda   qicon,x
          ldy   qicon,x
          jmp   drawready
 :unit    sty   spawnt
-         lda   exittile         ; units roll out by the command center,
-         sta   spawnat          ; soldiers by a barracks
-         ldy   qicon,x
+         lda   exittile         ; units roll out of the building they
+         sta   spawnat          ;   need (by the command center if it
+         ldy   qicon,x          ;   is gone meanwhile)
          lda   icons+12,y
-         beq   :out
-         jsr   findbarracks
+         bmi   :out
+         jsr   findbld
          bmi   :out
          sta   spawnat
 :out     lda   #F_DIRTY
@@ -4046,12 +4124,12 @@ initicons
 :rts     rts
 
 * available: Y = icon -> carry set if it can be built now (soldiers
-* need a barracks). Keeps X, Y, A.
+* need a barracks, vehicles a war factory). Keeps X, Y, A.
 available
          pha
          lda   icons+12,y
-         beq   :yes
-         jsr   findbarracks
+         bmi   :yes
+         jsr   findbld
          bmi   :no
 :yes     pla
          sec
@@ -4060,21 +4138,21 @@ available
          clc
          rts
 
-* findbarracks: A = tile of one of the player's barracks, or NONE
-* (N set). Keeps X, Y.
-findbarracks
-         phx
+* findbld: A = a building's template -> A = the door of one still
+* standing, or NONE (N set). Templates are ours or theirs. Keeps X, Y.
+findbld  phx
+         sta   ftile
          ldx   #0
 :loop    cpx   nunits
          bcs   :none
          lda   uflags,x
-         and   #F_PLAYER+F_BUILDING+F_DEAD
-         cmp   #F_PLAYER+F_BUILDING
+         and   #F_BUILDING+F_DEAD
+         cmp   #F_BUILDING
          bne   :next
          lda   uspr,x
-         cmp   #TMPL_BAR
+         cmp   ftile
          bne   :next
-         lda   utile,x
+         jsr   doorof
          bra   :done
 :next    inx
          inx
@@ -4083,6 +4161,31 @@ findbarracks
 :done    sta   ftile
          plx
          lda   ftile
+         rts
+
+* doorof: X = building -> A = its door, the tile below its bottom left:
+* top left + size * MAPW (keeps X, Y)
+doorof   lda   ustate,x
+         xba                    ; (size * 256 / 8)
+         lsr
+         lsr
+         lsr
+         clc
+         adc   ucargo,x
+         rts
+
+* standing: X = unit, A = template -> carry set if unit X is a building
+* of that template still standing (its slot may have gone to another
+* unit since). Keeps X, Y.
+standing cmp   uspr,x
+         bne   :no
+         lda   uflags,x
+         and   #F_BUILDING+F_DEAD
+         cmp   #F_BUILDING
+         bne   :no
+         sec
+         rts
+:no      clc
          rts
 
 * drawicon: Y = icon; copy it back from the sidebar layer, grey it out
@@ -4102,7 +4205,7 @@ drawicon lda   icons+2,y        ; top left in both banks
          sta   lsrc+2
          lda   #BGBANK
          sta   dst+2
-         lda   #14
+         lda   #ICONWB
          sta   width
          lda   #24
          sta   height
@@ -4115,7 +4218,7 @@ drawicon lda   icons+2,y        ; top left in both banks
          bcs   markicon
          jsr   dimicon
 
-* markicon: Y = icon; redraw its 26 x 24 pixels
+* markicon: Y = icon; redraw its 20 x 24 pixels
 markicon lda   icons,y
          sta   rx
          lda   icons+2,y
@@ -4124,7 +4227,7 @@ markicon lda   icons,y
          jsr   markrect
          lda   rx
          clc
-         adc   #10
+         adc   #4
          sta   rx
          jsr   markrect
          lda   ry
@@ -4134,8 +4237,9 @@ markicon lda   icons,y
          jsr   markrect
          lda   rx
          sec
-         sbc   #10
+         sbc   #4
          sta   rx
+
          jsr   markrect
          ply
          rts
@@ -4322,6 +4426,8 @@ moveview lda   tmp
 * radarclick: carry set if the mouse is on the radar; then center the
 * view on that spot (radar pixels are 2/3 of a tile)
 radarclick
+         lda   radaron          ; (off: no)
+         beq   :no
          lda   cx
          sec
          sbc   #RADX
@@ -4363,9 +4469,20 @@ div3     ldy   #0
 * moved, all of it is drawn again; otherwise, every 32 frames, only dots
 * that moved or went away are redrawn, so few cells change - up to 4 a
 * frame, as time allows. Tiles uncovered from the fog are redrawn the same
-* way.
+* way. Without a radar center (or with too little power) it is off.
 drawradar
-         lda   radtime
+         lda   radaron
+         bne   :on
+         lda   radoff           ; off: say so, once
+         bne   :rts0
+         inc   radoff
+         jmp   radblank
+:on      lda   radoff           ; on again: all of it
+         beq   :was
+         stz   radoff
+         lda   #NONE
+         sta   radtime
+:was     lda   radtime
          cmp   #NONE
          beq   :full
          lda   radidx           ; dots still to redraw: a few per frame
@@ -4377,7 +4494,7 @@ drawradar
          sbc   radtime
          cmp   #32
          bcs   :some
-         rts
+:rts0    rts
 
 :full    lda   frame            ; all of it: the terrain first
          sta   radtime
@@ -4415,20 +4532,7 @@ drawradar
 :alld    stz   radmk
          jsr   raddots
          jsr   radframe
-         lda   #1               ; redraw the radar's cells
-         sta   mrow
-:mr      lda   #CELLCOLS-4
-         sta   mcol
-:mc      jsr   markcell
-         inc   mcol
-         lda   mcol
-         cmp   #CELLCOLS
-         bne   :mc
-         inc   mrow
-         lda   mrow
-         cmp   #4
-         bne   :mr
-         rts
+         jmp   markradar
 
 :some    lda   frame            ; only what changed
          sta   radtime
@@ -4530,6 +4634,42 @@ drawradar
          bra   :dot
 :done    sty   radidx
          rts
+
+* radblank: the radar off: its picture for that (after the name tags in
+* the sprite bank) into the sidebar background
+radblank lda   #RADOFFADDR
+         sta   lsrc
+         lda   #SPRBANK
+         sta   lsrc+2
+         lda   #$2000+{RADY*LINE}+{RADX/2}
+         sta   dst
+         lda   #BGBANK
+         sta   dst+2
+         lda   #RADW/2
+         sta   width
+         lda   #RADH
+         sta   height
+         jsr   pastelong
+         lda   #WORKBANK
+         sta   dst+2
+
+* markradar: redraw the radar's cells
+markradar
+         lda   #1
+         sta   mrow
+:mr      lda   #CELLCOLS-4
+         sta   mcol
+:mc      jsr   markcell
+         inc   mcol
+         lda   mcol
+         cmp   #CELLCOLS
+         bne   :mc
+         inc   mrow
+         lda   mrow
+         cmp   #4
+         bne   :mr
+         rts
+
 
 * radpix: draw radar pixel rx, ry as it should look - the terrain, any
 * unit's dot over it (in table order), the view frame on top - and mark
@@ -6108,8 +6248,8 @@ updplace lda   placing
          rts
 
 * canplace: carry set if a bsize x bsize structure fits at placetile:
-* open ground without ore, units or the harvester dock, near one of
-* the player's buildings
+* open ground without ore, units or a harvester dock, near one of the
+* player's buildings; a refinery's dock (below its bottom left) open
 canplace stz   ty
 :row     stz   tx
 :col     lda   ty
@@ -6122,23 +6262,23 @@ canplace stz   ty
          adc   tx
          clc
          adc   placetile
-         cmp   dock
-         beq   :no
+         jsr   isdock
+         bcs   :no2
          tay
          lda   passw,y
          and   #$00FF
-         bne   :no
+         bne   :no2
          lda   oreamt,y
          and   #$00FF
-         bne   :no
+         bne   :no2
          tya
          asl
          tay
          lda   occ,y
-         bne   :no
+         bne   :no2
          tyx                    ; and seen
          ldal  FOG,x
-         bmi   :no
+         bmi   :no2
          inc   tx
          lda   tx
          cmp   bsize
@@ -6147,7 +6287,19 @@ canplace stz   ty
          lda   ty
          cmp   bsize
          bne   :row
-         lda   placetile        ; near a building of ours?
+         lda   qtype            ; a refinery: its dock open
+         cmp   #TMPL_REFP
+         bne   :near0
+         lda   placetile
+         clc
+         adc   #2*MAPW
+         tay
+         lda   passw,y
+         and   #$00FF
+         beq   :near0
+:no2     clc
+         rts
+:near0   lda   placetile        ; near a building of ours?
          and   #MAPW-1
          sta   col
          lda   placetile
@@ -6243,33 +6395,27 @@ place    lda   qtype
          clc
          adc   #MAPW+1
          jsr   :piece
-:block   stz   ty               ; its tiles are walls now
-:row     stz   tx
-:col     lda   ty
-         asl
-         asl
-         asl
-         asl
-         asl
-         clc
-         adc   tx
-         clc
-         adc   placetile
-         jsr   blocktile
-         inc   tx
-         lda   tx
-         cmp   bsize
-         bne   :col
-         inc   ty
-         lda   ty
-         cmp   bsize
-         bne   :row
-         jsr   calcpower
+:block   lda   placetile        ; its tiles are walls now
+         sta   tmp2
+         jsr   blockfoot
+         jsr   calcpower        ; (a refinery: a dock more)
          stz   placing          ; done
          stz   boxon
          lda   #SND_PLACE
          tsb   sndreq
-         ldx   #0
+         lda   qtype            ; a refinery comes with a harvester,
+         cmp   #TMPL_REFP       ;   at its dock
+         bne   :fin
+         lda   placetile
+         clc
+         adc   #2*MAPW
+         sta   spawnat
+         lda   #TMPL_HARVP
+         sta   spawnt
+         lda   #F_DIRTY
+         sta   spawnfl
+         jsr   spawnunit
+:fin     ldx   #0
          jmp   finishq
 :piece   tay                    ; tile A gets piece tmp3 (sprite + 1)
          lda   tmp3
@@ -6281,6 +6427,32 @@ place    lda   qtype
          mx    %00
          tya
          jmp   marktile
+
+* blockfoot: wall off a bsize x bsize footprint, top left tile tmp2
+* (keeps X)
+blockfoot
+         stz   ty
+:row     stz   tx
+:col     lda   ty
+         asl
+         asl
+         asl
+         asl
+         asl
+         clc
+         adc   tx
+         clc
+         adc   tmp2
+         jsr   blocktile
+         inc   tx
+         lda   tx
+         cmp   bsize
+         bne   :col
+         inc   ty
+         lda   ty
+         cmp   bsize
+         bne   :row
+         rts
 
 * blocktile / unblock: A = tile; wall it off, or make it as passable as
 * the map says (keeps X, Y)
@@ -6313,6 +6485,11 @@ unblock  phy
 calcpower
          stz   pwrmade
          stz   pwrused
+         stz   radhave
+         lda   dock             ; the docks: by the command center,
+         sta   docks            ;   then at each refinery
+         lda   #2
+         sta   ndocks
          ldx   #0
 :loop    cpx   nunits
          bcs   :done
@@ -6320,7 +6497,24 @@ calcpower
          and   #F_PLAYER+F_DEAD
          cmp   #F_PLAYER
          bne   :next
-         lda   upower,x
+         lda   uflags,x
+         bit   #F_BUILDING
+         beq   :pow
+         lda   uspr,x
+         cmp   #TMPL_RADARP
+         bne   :ref
+         inc   radhave
+:ref     cmp   #TMPL_REFP
+         bne   :pow
+         ldy   ndocks
+         cpy   #NDOCKS*2
+         bcs   :pow
+         jsr   doorof
+         sta   docks,y
+         iny
+         iny
+         sty   ndocks
+:pow     lda   upower,x
          beq   :next
          bmi   :use
          clc
@@ -6338,9 +6532,31 @@ calcpower
 :done    stz   lowpower
          lda   pwrmade
          cmp   pwrused
-         bcs   :rts
+         bcs   :rad
          inc   lowpower
-:rts     rts
+         stz   radhave          ; (the radar needs power too)
+:rad     lda   radhave
+         ora   radarall
+         beq   :off
+         lda   #1
+:off     sta   radaron
+         rts
+
+* isdock: carry set if tile A is one of the docks (keeps A, X, Y)
+isdock   phy
+         ldy   ndocks
+:loop    dey
+         dey
+         bmi   :no
+         cmp   docks,y
+         bne   :loop
+         ply
+         sec
+         rts
+:no      ply
+         clc
+         rts
+
 
 * drawpower: the numbers in the top bar ("used/made", green, red when
 * low) and the bar in the sidebar, when they changed
@@ -6641,7 +6857,7 @@ tilepos  pha
          rts
 
 * clearclaimed: forget the goals handed out by the last order. The
-* harvester dock is never handed out.
+* harvester docks are never handed out. Keeps X.
 clearclaimed
          inc   cstamp           ; older marks no longer count
          bne   :dock
@@ -6652,18 +6868,28 @@ clearclaimed
          dey
          bpl   :loop
          inc   cstamp
-:dock    lda   dock
+:dock    phx
+         ldy   ndocks
+:d       dey
+         dey
+         bmi   :done
+         lda   docks,y
          asl
-         tay
+         tax
          lda   cstamp
-         sta   claimed,y
+         sta   claimed,x
+         bra   :d
+:done    plx
          rts
+
 
 *-------------------------------------------------------------------
 * enemy AI (its numbers depend on the difficulty: initai, difftab):
-* a trickle of income (aiincome credits every 8 frames), a
-* build order at the barracks (while it has fewer than aimax of its units
-* out), and attack waves of the units it built: the first after a while
+* a trickle of income (aiincome credits every 8 frames) while its
+* refinery stands, a build order - infantry at its barracks, vehicles at
+* its war factory, at half speed without its power plant - while it has
+* fewer than aimax of its units out, and attack waves of the units it
+* built: the first after a while
 * with aiwave0 units, then one more unit each time (up to aiwavemax) at
 * least aigap frames apart. When the unit table is full and it cannot
 * build, a wave goes with aiwave0 units.
@@ -6699,25 +6925,40 @@ initai   lda   DIFF             ; its numbers at this difficulty (see
          sta   aibuild
          stz   aiidx
          stz   gameover
-         ldx   #0               ; find the two buildings
-:loop    cpx   nunits
+         ldx   #0               ; find our command center and the
+:loop    cpx   nunits           ;   enemy's buildings
          bcs   :done
          lda   uflags,x
          bit   #F_BUILDING
          beq   :next
-         bit   #F_PLAYER
-         beq   :enemy
+         lda   uspr,x
+         cmp   #TMPL_HQP
+         bne   :b
          stx   hqunit
-         bra   :next
-:enemy   stx   barunit
+:b       cmp   #TMPL_BARE
+         bne   :f
+         stx   barunit
+:f       cmp   #TMPL_FACTE
+         bne   :r
+         stx   factunit
+:r       cmp   #TMPL_REFE
+         bne   :p
+         stx   refunit
+:p       cmp   #TMPL_PPE
+         bne   :next
+         stx   ppunit
 :next    inx
          inx
          bra   :loop
 :done    rts
 
-ai       lda   frame            ; AIINCOME credits every 8 frames
-         and   #7
+ai       lda   frame            ; AIINCOME credits every 8 frames, while
+         and   #7               ;   its refinery stands
          bne   :prod
+         ldx   refunit
+         lda   #TMPL_REFE
+         jsr   standing
+         bcc   :prod
          lda   aicredits
          cmp   #60000
          bcs   :prod
@@ -6727,15 +6968,15 @@ ai       lda   frame            ; AIINCOME credits every 8 frames
 :prod    lda   aiwait           ; (count down to the next wave)
          beq   :bar
          dec   aiwait
-:bar     ldx   barunit          ; no barracks, no new units
-         lda   uflags,x
-         bit   #F_DEAD
-         bne   :wave
-         lda   aibuild
+:bar     lda   aibuild
          bpl   :busy
-         ldy   aiidx            ; next in the build order, if affordable
-         ldx   aiorder,y
-         lda   aicredits
+         ldy   aiidx            ; next in the build order: if the
+         ldx   aiorder,y        ;   building it needs stands (else on to
+         lda   templates+28,x   ;   the next) and it can afford it
+         jsr   findbld
+         bpl   :can
+         jmp   :nextidx
+:can     lda   aicredits
          cmp   templates+14,x
          bcc   :wave
          jsr   aicount          ; and it has fewer than aimax out
@@ -6748,20 +6989,27 @@ ai       lda   frame            ; AIINCOME credits every 8 frames
          sbc   templates+14,x
          sta   aicredits
          stx   aibuild
-         lda   templates+16,x   ; build time = 10 segments
-         asl
-         sta   tmp
+         lda   templates+16,x   ; build time = BARSEGS segments
          asl
          asl
-         clc
-         adc   tmp
+         asl
          sta   aitimer
          bra   :wave
-:busy    dec   aitimer
+:busy    ldx   ppunit           ; without its power plant: half speed
+         lda   #TMPL_PPE
+         jsr   standing
+         bcs   :fast
+         lda   frame
+         lsr
+         bcs   :wave
+:fast    dec   aitimer
          bne   :wave
-         lda   aibuild
-         sta   spawnt
-         lda   aiexit
+         lda   aibuild          ; done: it comes out of its building
+         sta   spawnt           ;   (gone meanwhile: lost)
+         tax
+         lda   templates+28,x
+         jsr   findbld
+         bmi   :built
          sta   spawnat
          lda   #F_DIRTY+F_AI
          sta   spawnfl
@@ -6775,7 +7023,7 @@ ai       lda   frame            ; AIINCOME credits every 8 frames
 :built   stz   aistuck
          lda   #NONE
          sta   aibuild
-         lda   aiidx
+:nextidx lda   aiidx
          inc
          inc
          cmp   #NAIORDER*2
@@ -6852,22 +7100,18 @@ aicount  phx
          rts
 
 
-* checkend: lost when the command center falls, won when the barracks
-* and every enemy unit are gone
+* checkend: lost when the command center falls, won when every enemy
+* unit and building is gone
 checkend lda   frame
          and   #15
          bne   :rts
          ldx   hqunit
-         lda   uflags,x
-         bit   #F_DEAD
-         beq   :alive
+         lda   #TMPL_HQP
+         jsr   standing
+         bcs   :alive
          lda   #2
          bra   :end
-:alive   ldx   barunit
-         lda   uflags,x
-         bit   #F_DEAD
-         beq   :rts
-         ldx   #0
+:alive   ldx   #0
 :loop    cpx   nunits
          bcs   :win
          lda   uflags,x
@@ -7025,11 +7269,11 @@ razebuilding
          jmp   spawnfx
 
 *-------------------------------------------------------------------
-* initunits: load the unit table from units.bin
-* records: sprite, tile, flags, speed, hp, range, damage, rate, power,
-* footprint (buildings: top-left tile | size << 8; their sprite is NONE),
-* class.
-* For buildings, ucargo / ustate hold the footprint top left / size.
+* initunits: load the unit table from the map's unit records: sprite,
+* tile, flags, speed, hp, range, damage, rate, power, footprint top left,
+* size, class. Buildings: their sprite is their template; ucargo /
+* ustate hold the footprint top left / size.
+
 
 initunits
          ldx   #0               ; record offset
@@ -7075,24 +7319,32 @@ initunits
          sta   urate,y
          lda   unitdata+16,x
          sta   upower,y
-         lda   unitdata+20,x
+         lda   unitdata+22,x
          sta   uclass,y
-         lda   uflags,y         ; buildings: footprint top left, size
-         bit   #F_BUILDING
-         beq   :nb
+         lda   uflags,y         ; buildings: footprint top left, size;
+         bit   #F_BUILDING      ;   a 2x2 one stands on its top-left
+         beq   :nb              ;   tile, its middle at the corner
          lda   unitdata+18,x
-         and   #$00FF
          sta   ucargo,y
-         lda   unitdata+19,x
-         and   #$00FF
+         lda   unitdata+20,x
          sta   ustate,y
+         cmp   #2
+         bne   :nb
+         lda   ux,y
+         clc
+         adc   #8
+         sta   ux,y
+         lda   uy,y
+         clc
+         adc   #8
+         sta   uy,y
 :nb      lda   #NONE
          sta   unext,y
          sta   ugoal,y
          sta   utarget,y
          txa
          clc
-         adc   #22
+         adc   #24
          tax
          iny
          iny
@@ -7102,6 +7354,33 @@ initunits
          lda   #NONE            ; force the first cursor draw
          sta   ocshape
          rts
+
+* initblds: the starting buildings' footprints and the turrets' and
+* guard towers' tiles are walls; the buildings sell for half their price
+initblds ldx   #0
+:loop    cpx   nunits
+         bcs   :rts
+         lda   uflags,x
+         bit   #F_BUILDING
+         beq   :st
+         lda   ucargo,x
+         sta   tmp2
+         lda   ustate,x
+         sta   bsize
+         jsr   blockfoot
+         ldy   uspr,x
+         lda   templates+14,y
+         lsr
+         sta   ucost,x
+         bra   :next
+:st      bit   #F_STATIC
+         beq   :next
+         lda   utile,x
+         jsr   blocktile
+:next    inx
+         inx
+         bra   :loop
+:rts     rts
 
 * makeytab: ytab[y] = y * 160
 makeytab ldx   #0
@@ -8031,20 +8310,8 @@ unitlabel
          bne   :rts
          lda   #NONE
 :rts     rts
-:bld     lda   uspr,x           ; the starting ones: our command center,
-         cmp   #NONE            ;   their barracks
-         bne   :built
-         lda   uflags,x
-         lsr
-         lda   #LBL_HQ
-         bcs   :rts
-         lda   #LBL_BARE
-         rts
-:built   cmp   #TMPL_BAR        ; placed ones (uspr = template)
-         beq   :bar
-         lda   #LBL_PP
-         rts
-:bar     lda   #LBL_BARP
+:bld     ldy   uspr,x           ; buildings: their template's
+         lda   templates+26,y
          rts
 
 * hiticon: A = build icon under the mouse (N clear), or NONE (N set)
@@ -8202,26 +8469,33 @@ drawlabel
          sta   dst
          lda   #WORKBANK
          sta   dst+2
+         lda   lblw             ; (tags are whole words across)
+         sta   width
          lda   #LABELH
-         sta   ty
-:row     ldy   #0               ; (tags are whole words across)
+         sta   height
+
+* pastelong: copy height rows of width bytes (even), one after the other
+* at [lsrc], into [dst] laid out like the screen
+pastelong
+:row     ldy   #0
 :word    lda   [lsrc],y
          sta   [dst],y
          iny
          iny
-         cpy   lblw
-         bne   :word
+         cpy   width
+         bcc   :word
          lda   lsrc
          clc
-         adc   lblw
+         adc   width
          sta   lsrc
          lda   dst
          clc
          adc   #LINE
          sta   dst
-         dec   ty
+         dec   height
          bne   :row
          rts
+
 
 *-------------------------------------------------------------------
 * drawui: top bar across the screen, sidebar on the right
@@ -8515,7 +8789,7 @@ mapblk   ds    MB_SIZE
          ds    2                ; padding: map is read 16 bits at a time
 dock     equ   mapblk+MB_DOCK   ; harvesters unload here
 exittile equ   mapblk+MB_EXIT   ; our new units appear around here
-aiexit   equ   mapblk+MB_AIEXIT ; and the enemy's here
+
 camx0    equ   mapblk+MB_CAMX   ; the first view's top-left tile
 camy0    equ   mapblk+MB_CAMY
 map      equ   mapblk+MB_MAP    ; per tile: its graphic

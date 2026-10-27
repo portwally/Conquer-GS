@@ -32,6 +32,7 @@ sub = emu.add_machine_frame_notifier(function()
   local nf = tick()
   if nf == f then return end
   f = nf
+  if f == 700 then mem:write_u16(V.RADARALL, 1); mem:write_u16(V.RADARON, 1) end   -- (radar on)
   if f >= 700 then
     mem:write_u16(V.AICREDITS, 5000); mem:write_u16(V.AIWAIT, 0); mem:write_u16(V.AIMAX, V.MAXUNITS)
     mem:write_u16(V.UHP + w(V.HQUNIT), 400); mem:write_u16(V.UHP + w(V.BARUNIT), 300)

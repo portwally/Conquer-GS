@@ -1,6 +1,7 @@
--- Blocked units test. 1: a new buggy comes out at the exit boxed in by
--- parked units (a tank, two soldiers, the harvester docking); ordered
--- east, the idle ones must make way and it must get there. 2: a tank in a
+-- Blocked units test. 1: a new buggy comes out of the war factory's door
+-- (5,18) boxed in by parked units (two tanks, two soldiers) and walls (the
+-- command center's pad, the factory); ordered east, the idle ones must
+-- make way and it must get there. 2: a tank in a
 -- pocket whose neighbors cannot move (held in place by the script) must
 -- keep its order instead of giving up, and get through once they can.
 local G = dofile("tools/gs.lua")
@@ -21,7 +22,7 @@ local function tile(c, r) return r * W + c end
 local function at(i) local c, r = G.tile(i); return string.format("(%d,%d)", c, r) end
 local function around(tag)
   print(string.format("-- %s f=%d (unit numbers, # walls)", tag, G.f))
-  for r = 18, 22 do
+  for r = 16, 22 do
     local row = ""
     for c = 2, 14 do
       local o = mem:read_u16(V.OCC + 2 * tile(c, r))
@@ -41,7 +42,7 @@ local function near(i, c, r)
 end
 
 -- 1: out of the exit (as soon as the buggy is there)
-local buggy, t1, s3, s4
+local buggy, t0, t1, s3, s4
 local held = {}
 local function part2(f0)
   -- a pocket at the exit: the dock is walled off for the test, and the
@@ -72,6 +73,10 @@ local function part2(f0)
     manager.machine:exit()
   end)
 end
+G.at(700, function()                            -- park them around the door
+  G.sw(V.USTATE, 2, 0); G.sw(V.UGOAL, 2, 0xFFFF)   -- (the harvester stays put)
+  G.teleport(0, 6, 18); G.teleport(1, 5, 19); G.teleport(3, 6, 19); G.teleport(4, 4, 17)
+end)
 G.click(705, I.buggy_p[1], I.buggy_p[2])
 local state, ordered = "wait", nil
 G.run(4000, function(f)
@@ -81,8 +86,9 @@ G.run(4000, function(f)
     for i = 0, n - 1 do if G.w(V.USPR, i) == E.SPR_BUGGY_P then buggy = i end end
     if buggy then
       state = "part1"
-      around("buggy (unit " .. buggy .. ") at the exit")
-      t1, s3, s4 = G.w(V.UTILE, 1), G.w(V.UTILE, 3), G.w(V.UTILE, 4)
+      around("buggy (unit " .. buggy .. ") at the war factory's door")
+      check(near(buggy, 5, 18), "it came out by the door")
+      t0, t1, s3, s4 = G.w(V.UTILE, 0), G.w(V.UTILE, 1), G.w(V.UTILE, 3), G.w(V.UTILE, 4)
       ordered = f + 5
       order(buggy, 13, 20, ordered)
     end
@@ -92,9 +98,11 @@ G.run(4000, function(f)
       around("after the order")
       print(string.format("  buggy at %s after %d frames", at(buggy), f - ordered))
       check(near(buggy, 13, 20), "buggy got out and arrived")
-      local moved = (G.w(V.UTILE, 1) ~= t1 and 1 or 0) + (G.w(V.UTILE, 3) ~= s3 and 1 or 0)
+      local moved = (G.w(V.UTILE, 0) ~= t0 and 1 or 0) + (G.w(V.UTILE, 1) ~= t1 and 1 or 0)
+        + (G.w(V.UTILE, 3) ~= s3 and 1 or 0)
         + (G.w(V.UTILE, 4) ~= s4 and 1 or 0)
       print("  parked units that made way: " .. moved)
+      check(moved > 0, "a parked unit made way")
       part2(f + 20)
     end
   end

@@ -48,7 +48,7 @@ G.at(760, function() gone("open ground:") end)
 G.at(762, function() G.mouse(G.tilexy(3, 19)) end)        -- command center
 G.at(790, function() expect("our command center:", "hq_p") end)
 G.at(792, function() G.mouse(I.tank_p[1], I.tank_p[2]) end)
-G.at(820, function() expect("tank icon:", "icon4"); G.dump("l1_icon") end)
+G.at(820, function() expect("tank icon:", "icon" .. I.tank_p.n); G.dump("l1_icon") end)
 G.at(822, function() G.seeall(); G.look(16, 0) end)
 G.at(880, function()                                      -- an enemy tank
   local n = G.w(V.NUNITS) // 2

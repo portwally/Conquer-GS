@@ -906,7 +906,7 @@ def ramps(team):
     return {'team': (H, T, t), 'teamdark': (T, t, u), 'flag': (H, T, T),
             'steel': (LIGHT, STEEL, STEEL_D), 'dark': (STEEL, STEEL_D, INK),
             'glass': (LIGHT, WATER_L, WATER_D), 'sand': (LIGHT, SAND, DIRT),
-            'ink': (INK, INK, INK)}
+            'ink': (INK, INK, INK), 'dish': (LIGHT, LIGHT, STEEL)}
 
 
 class Model:
@@ -1102,7 +1102,7 @@ def barracks(team, size=2):
     return model_sprite(barracks_model(), team, size * 16, size * 16, pad, 3 + pad)
 
 
-def power_plant(team):
+def power_plant_model():
     """Generator hall with two cooling towers."""
     m = Model()
     m.box(1, 29, 13, 23, 0, 5, 'steel')
@@ -1111,7 +1111,139 @@ def power_plant(team):
         m.paint(x, x + 2, 23, 23, 0, 1, 'ink')              # vents
     m.tower(8.5, 10, 6.5, 10)
     m.tower(21.5, 10, 6.5, 10)
-    return model_sprite(m, team, 32, 32, 1, 8)
+    return m
+
+
+def power_plant(team):
+    return model_sprite(power_plant_model(), team, 32, 32, 1, 8)
+
+
+def factory_model():
+    """War factory: a long hall with team stripes on the roof, a big door
+    in front, a control room and a stack."""
+    m = Model()
+    m.box(1, 30, 9, 24, 0, 5, 'steel')
+    m.paint(1, 30, 12, 13, 5, 5, 'team')                    # roof stripes
+    m.paint(1, 30, 19, 20, 5, 5, 'team')
+    m.paint(1, 30, 24, 24, 4, 4, 'team')                    # front stripe
+    m.paint(8, 21, 24, 24, 0, 3, 'ink')                     # the door
+    m.paint(8, 21, 24, 24, 1, 1, 'dark')
+    m.box(23, 29, 4, 10, 6, 8, 'steel')                     # control room
+    m.paint(23, 29, 10, 10, 7, 7, 'glass')
+    m.cyl(5, 6.5, 1.6, 6, 8, 'dark')                        # stack
+    return m
+
+
+def factory(team):
+    return model_sprite(factory_model(), team, 32, 32, 0, 6)
+
+
+def refinery_model():
+    """Refinery: a processing hall with an unloading bay in front on the
+    left (the harvesters' dock is below it) and two silos."""
+    m = Model()
+    m.box(1, 17, 11, 24, 0, 4, 'steel')
+    m.paint(1, 17, 11, 24, 4, 4, 'team')                    # roof edge
+    m.paint(2, 16, 12, 23, 4, 4, 'steel')
+    m.paint(1, 17, 24, 24, 3, 3, 'team')
+    m.paint(3, 9, 24, 24, 0, 2, 'ink')                      # unloading bay
+    m.cyl(24, 9.5, 5.2, 0, 9, 'steel')                      # silos with
+    m.paint(18, 30, 3, 16, 3, 4, 'team')                    #   team bands
+    m.cyl(25, 20.5, 4.2, 0, 6, 'steel')
+    m.paint(20, 30, 15, 26, 2, 3, 'team')
+    m.box(17, 19, 15, 15, 3, 3, 'dark')                     # pipes
+    m.box(6, 18, 7, 7, 5, 5, 'dark')
+    m.box(6, 6, 7, 10, 5, 5, 'dark')
+    return m
+
+
+def refinery(team):
+    return model_sprite(refinery_model(), team, 32, 32, 0, 6)
+
+
+def radar_model():
+    """Radar center: a low building with a dish on a mast, tilted to face
+    south and up (it curves a little), and equipment on the roof."""
+    m = Model()
+    m.box(2, 29, 13, 23, 0, 4, 'steel')
+    m.paint(2, 29, 23, 23, 3, 3, 'team')
+    for x in (16, 20, 24):
+        m.paint(x, x + 2, 23, 23, 1, 2, 'glass')
+    m.box(9, 11, 11, 13, 5, 9, 'dark')                      # mast
+    cx, cy, cz = 10, 12, 12                                 # the dish
+    nx, ny, nz = 0.0, 0.55, 0.835
+    p = m.part()
+    for x in range(2, 19):
+        for y in range(3, 21):
+            for z in range(6, 21):
+                dx, dy, dz = x + 0.5 - cx, y + 0.5 - cy, z + 0.5 - cz
+                d = dx * nx + dy * ny + dz * nz
+                r2 = dx * dx + dy * dy + dz * dz - d * d
+                if r2 <= 5.8 ** 2 and abs(d - 0.06 * r2) < 0.75:
+                    m.v[(x, y, z)] = ('steel' if r2 > 4.6 ** 2 else 'dish', p)
+    m.box(10, 10, 14, 14, 14, 15, 'team')                   # its feed
+    m.box(20, 27, 15, 20, 5, 6, 'steel')                    # equipment
+    m.paint(20, 27, 15, 20, 6, 6, 'team')
+    return m
+
+
+def radar(team):
+    return model_sprite(radar_model(), team, 32, 32, 0, 10)
+
+
+def tower_model(facing='right'):
+    """Guard tower: a small concrete tower with a team platform and a
+    machine gun facing right, up or down (left: right mirrored)."""
+    m = Model()
+    m.box(4, 11, 5, 11, 0, 0, 'steel')                      # footing
+    m.box(5, 10, 6, 10, 1, 4, 'steel')
+    m.box(4, 11, 5, 11, 5, 5, 'team')                       # platform
+    m.box(4, 11, 5, 5, 6, 6, 'team')                        # parapet
+    m.box(4, 11, 11, 11, 6, 6, 'team')
+    m.box(4, 4, 5, 11, 6, 6, 'team')
+    m.box(11, 11, 5, 11, 6, 6, 'team')
+    m.box(7, 8, 7, 9, 6, 6, 'dark')                         # the gun
+    if facing == 'up':
+        m.box(7, 7, 2, 6, 6, 6, 'dark')
+    elif facing == 'down':
+        m.box(7, 7, 10, 14, 6, 6, 'dark')
+    else:
+        m.box(9, 14, 8, 8, 6, 6, 'dark')
+    return m
+
+
+def guard_tower(team, facing='right'):
+    return model_sprite(tower_model('right' if facing == 'left' else facing), team,
+                        16, 16, 0, 4, facing == 'left')
+
+
+# a model at half size for the sidebar icons: each 2x2x2 block that is at
+# least 3/8 full, in its most telling material
+TELLING = {'team': 5, 'flag': 5, 'glass': 4, 'ink': 4, 'dish': 4, 'teamdark': 3,
+           'dark': 2, 'sand': 2, 'steel': 1}
+
+
+def half(m):
+    blocks = {}
+    for (x, y, z), (mat, p) in m.v.items():
+        blocks.setdefault((x // 2, y // 2, z // 2), []).append((mat, p))
+    h = Model()
+    for k, vs in blocks.items():
+        if len(vs) >= 3:
+            mats = [mat for mat, _ in vs]
+            mat = max(set(mats), key=lambda q: (mats.count(q) * TELLING.get(q, 1), q))
+            parts = [p for _, p in vs]
+            h.v[k] = (mat, max(set(parts), key=lambda q: (parts.count(q), -q)))
+    return h
+
+
+def mini_building(name):
+    """A 2x2 structure's 16x16 sidebar icon."""
+    model, oy = {'pp': (power_plant_model, 4), 'bar': (barracks_model, 2),
+                 'fact': (factory_model, 3), 'ref': (refinery_model, 3),
+                 'radar': (radar_model, 5)}[name]
+    return model_sprite(half(model()), 'player', 16, 16, 0, oy)
+
 
 
 def quarters(img):
@@ -1139,21 +1271,25 @@ def make_sprites():
     for name in UNIT_TYPES:                     # right, left, up, down
         kind, side = name.split('_')
         team = 'player' if side == 'p' else 'enemy'
-        if kind == 'turret':
+        if kind in ('turret', 'tower'):
+            draw = turret if kind == 'turret' else guard_tower
             for suffix, facing in (('', 'right'), ('_l', 'left'), ('_u', 'up'), ('_d', 'down')):
-                s[name + suffix] = turret(team, facing)
+                s[name + suffix] = draw(team, facing)
             continue
         right, up, down = views[kind]
         s[name] = unit(right, team)
         s[name + '_l'] = unit(right, team, flip=True)
         s[name + '_u'] = unit(up, team)
         s[name + '_d'] = unit(down, team)
-    # buildings in tile-sized pieces: the starting ones on their 3x3 pads,
-    # the placeable ones filling 2x2
-    for name, img, size in (('hq_p', hq('player'), 3),
-                            ('bar_e', barracks('enemy', 3), 3),
-                            ('pp_p', power_plant('player'), 2),
-                            ('bar_p', barracks('player'), 2)):
+    # buildings in tile-sized pieces: the command center and the enemy's
+    # barracks on their 3x3 pads, the rest filling 2x2
+    draw = {'pp': power_plant, 'bar': barracks, 'fact': factory, 'ref': refinery,
+            'radar': radar}
+    for name in BUILDING_PIECES:
+        kind, side = name.split('_')
+        team = 'player' if side == 'p' else 'enemy'
+        size = BSIZE.get(name, 2)
+        img = hq(team) if kind == 'hq' else draw[kind](team, 3) if size == 3 else draw[kind](team)
         for i, q in enumerate(pieces(img, size, 0, 0)):
             s['%s%d' % (name, i)] = q
     s['select'] = grid(SELECT)
@@ -1378,15 +1514,17 @@ def drawn_edges(bits):
 
 
 UNIT_TYPES = ['tank_p', 'tank_e', 'harv_p', 'sold_p', 'sold_e', 'turret_e',
-              'turret_p', 'buggy_p', 'buggy_e', 'rock_p', 'rock_e']
+              'turret_p', 'buggy_p', 'buggy_e', 'rock_p', 'rock_e', 'tower_p', 'tower_e']
+# buildings: size in tiles (the rest are 2x2); those drawn in pieces
+BSIZE = {'hq_p': 3, 'bar_e': 3}
+BUILDING_PIECES = ['hq_p', 'bar_e', 'pp_p', 'bar_p', 'fact_p', 'ref_p', 'radar_p',
+                   'fact_e', 'ref_e', 'pp_e']
 SPRITE_ORDER = ([n for u in UNIT_TYPES for n in (u, u + '_l', u + '_u', u + '_d')] +
-                ['hq_p%d' % i for i in range(9)] +
-                ['bar_e%d' % i for i in range(9)] +
-                ['pp_p0', 'pp_p1', 'pp_p2', 'pp_p3',
-                 'bar_p0', 'bar_p1', 'bar_p2', 'bar_p3',
-                 'select', 'cur_arrow', 'cur_move', 'cur_attack',
+                ['%s%d' % (b, i) for b in BUILDING_PIECES for i in range(BSIZE.get(b, 2) ** 2)] +
+                ['select', 'cur_arrow', 'cur_move', 'cur_attack',
                  'hit', 'boom0', 'boom1'] + FOG_NAMES +
                 ['cur_sell', 'cur_repair', 'cur_no'])
+
 
 # unit flags, shared with src/main.s through gfxequ.s
 F_PLAYER, F_SEL, F_LEFT, F_VERT = 1, 2, 4, 8     # (F_VERT: up; with F_LEFT down)
@@ -1394,41 +1532,42 @@ F_DEAD, F_CHASE, F_STATIC, F_HARV = 0x10, 0x20, 0x40, 0x80
 F_BUILDING, F_AI, F_AMOVE, F_DIRTY = 0x100, 0x200, 0x400, 0x8000
 
 # The maps: name, terrain, the starting buildings ((name, top-left column,
-# row) of their 3x3 pads), the units (name, column, row; buildings are
-# units too, on their center tile), where harvesters unload (next to the
-# command center), where our new units and the enemy's appear, the first
-# view's top-left tile, and whether the enemy is in the west (then the
-# units start facing each other that way).
+# row): the command center and the enemy's barracks on 3x3 pads of
+# concrete, the rest 2x2 on open ground; they become units after the
+# others), the units (name, column, row), where harvesters unload (next
+# to the command center), where our new units appear when no building
+# makes them, the first view's top-left tile, and whether the enemy is in
+# the west (then the units start facing each other that way).
 MAPS = [
     {'name': 'GREEN VALLEY', 'rows': green_valley(),
-     'buildings': [('hq_p', 2, 18), ('bar_e', 26, 3)],
+     'buildings': [('hq_p', 2, 18), ('bar_e', 26, 3), ('fact_p', 5, 16),
+                   ('fact_e', 29, 3), ('ref_e', 24, 1), ('pp_e', 29, 6)],
      'units': [('tank_p', 6, 18), ('tank_p', 6, 20), ('harv_p', 8, 16),
                ('sold_p', 5, 21), ('sold_p', 6, 21),
                ('tank_e', 24, 7), ('tank_e', 26, 8),
                ('sold_e', 23, 6), ('sold_e', 24, 6), ('sold_e', 23, 7),
-               ('turret_e', 24, 4),
-               ('hq_p', 3, 19), ('bar_e', 27, 4)],
-     'dock': (5, 19), 'exit': (5, 20), 'aiexit': (25, 6), 'camera': (0, 12),
+               ('turret_e', 24, 4), ('tower_e', 22, 6), ('tower_e', 27, 9)],
+     'dock': (5, 19), 'exit': (5, 20), 'camera': (0, 12),
      'enemy_west': False},
     {'name': 'RIVER CROSSING', 'rows': river_crossing(),
-     'buildings': [('hq_p', 26, 17), ('bar_e', 3, 3)],
+     'buildings': [('hq_p', 26, 17), ('bar_e', 3, 3), ('fact_p', 29, 17),
+                   ('fact_e', 6, 1), ('ref_e', 1, 6), ('pp_e', 1, 3)],
      'units': [('tank_p', 24, 17), ('tank_p', 24, 19), ('harv_p', 21, 17),
                ('sold_p', 26, 20), ('sold_p', 25, 20),
                ('tank_e', 7, 7), ('tank_e', 6, 8),
                ('sold_e', 8, 5), ('sold_e', 7, 5), ('sold_e', 8, 4),
-               ('turret_e', 7, 3),
-               ('hq_p', 27, 18), ('bar_e', 4, 4)],
-     'dock': (25, 18), 'exit': (25, 19), 'aiexit': (6, 6), 'camera': (16, 12),
+               ('turret_e', 7, 3), ('tower_e', 10, 4), ('tower_e', 8, 9)],
+     'dock': (25, 18), 'exit': (25, 19), 'camera': (16, 12),
      'enemy_west': True},
 ]
 
 
 def use_map(i):
     """Make map i the one the map functions work on."""
-    global MAP, BUILDINGS, UNITS, DOCK, EXIT, AIEXIT, CAMERA0, ENEMY_WEST
+    global MAP, BUILDINGS, UNITS, DOCK, EXIT, CAMERA0, ENEMY_WEST
     m = MAPS[i]
     MAP, BUILDINGS, UNITS = m['rows'], m['buildings'], m['units']
-    DOCK, EXIT, AIEXIT, CAMERA0 = m['dock'], m['exit'], m['aiexit'], m['camera']
+    DOCK, EXIT, CAMERA0 = m['dock'], m['exit'], m['camera']
     ENEMY_WEST = m['enemy_west']
 
 
@@ -1443,26 +1582,40 @@ STATS = {
     'turret': (150, 4, 20, 50, 0, 0, 0),
     'buggy': (90, 2, 5, 12, 0, 300, 5),
     'rock': (30, 4, 15, 50, 3, 300, 5),
-    'hq': (400, 0, 0, 0, 0, 0, 0),
-    'bar': (300, 0, 0, 0, 0, 0, 0),
+    'tower': (150, 3, 6, 12, 0, 400, 5),
 }
 
-# structures the player can build and place: hit points, range, damage,
-# rate, cost, build seconds, size in tiles, power (+ makes, - uses)
+# structures: hit points, range, damage, rate, cost, build seconds, size
+# in tiles, power (+ makes, - uses; the enemy's: none). The player can
+# build those with a cost; the rest stand at the start.
+HQ_POWER = 100
 STRUCTS = {
     'pp_p': (200, 0, 0, 0, 300, 6, 2, 100),
     'bar_p': (300, 0, 0, 0, 500, 8, 2, -30),
+    'ref_p': (300, 0, 0, 0, 1500, 10, 2, -30),
+    'fact_p': (400, 0, 0, 0, 1000, 10, 2, -30),
+    'radar_p': (250, 0, 0, 0, 800, 8, 2, -40),
     'turret_p': (200, 4, 20, 50, 600, 8, 1, -40),
+    'tower_p': (150, 3, 6, 12, 400, 5, 1, -10),
+    'hq_p': (400, 0, 0, 0, 0, 0, 3, HQ_POWER),
+    'bar_e': (300, 0, 0, 0, 0, 0, 3, 0),
+    'fact_e': (400, 0, 0, 0, 0, 0, 2, 0),
+    'ref_e': (300, 0, 0, 0, 0, 0, 2, 0),
+    'pp_e': (200, 0, 0, 0, 0, 0, 2, 0),
 }
-HQ_POWER = 100
+# the ones that are buildings (drawn with the map, in pieces); turrets and
+# guard towers are drawn like units
+BUILDING_NAMES = {n for n in STRUCTS if not n.startswith(('turret', 'tower'))}
+STARTING = ['hq_p', 'bar_e', 'fact_e', 'ref_e', 'pp_e']    # (not built)
 
 # armor and weapon classes: damage = base damage * DAMAGE[weapon][armor] / 8
 INFANTRY, VEHICLE, BUILDING = 0, 1, 2
 GUN, MGUN, ROCKETS = 0, 1, 2
 ARMOR = {'tank': VEHICLE, 'harv': VEHICLE, 'buggy': VEHICLE, 'sold': INFANTRY,
          'rock': INFANTRY, 'turret': BUILDING, 'hq': BUILDING, 'bar': BUILDING,
-         'pp': BUILDING}
-WEAPON = {'buggy': MGUN, 'rock': ROCKETS}           # the rest: GUN
+         'pp': BUILDING, 'fact': BUILDING, 'ref': BUILDING, 'radar': BUILDING,
+         'tower': BUILDING}
+WEAPON = {'buggy': MGUN, 'rock': ROCKETS, 'tower': MGUN}   # the rest: GUN
 DAMAGE = {GUN: (8, 8, 8),               # cannons and rifles: the same to all
           MGUN: (16, 4, 2),             # machine gun: good against infantry
           ROCKETS: (3, 16, 12)}         # rockets: good against armor
@@ -1489,11 +1642,17 @@ DIFF0 = 1                       # chosen at first: NORMAL
 AI_BUILDS = ['sold_e', 'rock_e', 'tank_e', 'sold_e', 'buggy_e', 'rock_e']  # repeated
 H_IDLE, H_SEEK, H_GOTO, H_MINE, H_HOME, H_UNLOAD = range(6)
 
-# sidebar build icons, left to right, top to bottom. Structures and units
-# build in two separate queues; soldiers need a barracks.
-ICON_UNITS = ['pp_p', 'bar_p', 'turret_p', 'harv_p', 'tank_p', 'buggy_p',
-              'sold_p', 'rock_p']
-NEEDS_BARRACKS = {'sold_p', 'rock_p'}
+# sidebar build icons, three across, top to bottom. Structures and units
+# build in two separate queues; soldiers need a barracks, vehicles a war
+# factory (and come out of it); so do the enemy's.
+ICON_UNITS = ['pp_p', 'bar_p', 'ref_p', 'fact_p', 'radar_p', 'turret_p', 'tower_p',
+              'harv_p', 'tank_p', 'buggy_p', 'sold_p', 'rock_p']
+NEEDS = {'sold_p': 'bar_p', 'rock_p': 'bar_p', 'harv_p': 'fact_p', 'tank_p': 'fact_p',
+         'buggy_p': 'fact_p', 'sold_e': 'bar_e', 'rock_e': 'bar_e', 'tank_e': 'fact_e',
+         'buggy_e': 'fact_e'}
+BARSEGS = 8                     # a progress bar's segments (2 pixels each)
+ICONWB = 10                     # an icon's width in bytes
+
 PLACE_RANGE = 4                 # structures go within this many tiles of
                                 # one of your buildings
 # selling gives back half the price; repairing adds REPAIR_HP hit points
@@ -1509,21 +1668,31 @@ BUTTON_ON = {STEEL: GOLD, LIGHT: SAND, GOLD: LIGHT}
 
 
 def icon_box(i):
-    """Sidebar-relative box of build icon i: x0, y0, x1, y1."""
-    x0, y0 = 5 + (i % 2) * 28, 59 + (i // 2) * 25
-    return x0, y0, x0 + 25, y0 + 23
+    """Sidebar-relative box of build icon i: x0, y0, x1, y1 (three across,
+    each 20 x 24 with a 16 x 16 picture)."""
+    x0, y0 = 2 + (i % 3) * 20, 59 + (i // 3) * 25
+    return x0, y0, x0 + 19, y0 + 23
 
 
 def icon_bar(i):
-    """Sidebar-relative top left of icon i's progress bar (20 x 2)."""
+    """Sidebar-relative top left of icon i's progress bar (16 x 2)."""
     x0, y0, _, _ = icon_box(i)
-    return x0 + 3, y0 + 19
+    return x0 + 2, y0 + 19
 
 # terrain units cannot enter: water, trees, rocks, building pads
 BLOCKED = 'wtrc'
 
-BUILDING_NAMES = {n for n, _, _ in BUILDINGS}
 CURSOR_START = (128, 100)       # screen pixel, arrow hotspot
+
+
+def bsize(name):
+    return STRUCTS[name][6]
+
+
+def door(name, c0, r0):
+    """A building's door (column, row): below its bottom-left tile. Units
+    come out there, and harvesters unload at a refinery's."""
+    return c0, r0 + bsize(name)
 
 
 def building_overlays(sprites):
@@ -1531,68 +1700,87 @@ def building_overlays(sprites):
     the map (empty pieces left out)."""
     out = []
     for name, c0, r0 in BUILDINGS:
-        for i in range(9):
+        n = bsize(name)
+        for i in range(n * n):
             piece = '%s%d' % (name, i)
             if any(any(row) for row in sprites[piece]):
-                out.append(((r0 + i // 3) * MAP_COLS + c0 + i % 3,
+                out.append(((r0 + i // n) * MAP_COLS + c0 + i % n,
                             SPRITE_ORDER.index(piece)))
     return out
 
 
+def template_offset(name):
+    return [n for n, _ in templates()].index(name) * TMPLSZ
+
+
 def unit_records():
     """(base sprite, tile, flags, speed, hp, range, damage, rate, power,
-    footprint, class). The sprite drawn is base + 0-3: facing right, left
-    (F_LEFT), up (F_VERT) or down (both).
-    tile = row*16 + col. Buildings: footprint = top-left tile | size << 8.
+    footprint top-left tile, footprint size, class) of the units, then the
+    starting buildings. The sprite drawn is base + 0-3: facing right, left
+    (F_LEFT), up (F_VERT) or down (both). tile = row*32 + col.
+    Buildings: sprite = their template (offset in templates.bin); tile =
+    the middle of a 3x3 one, the top left of a 2x2 one (as when placed).
     """
     recs = []
     for name, col, row in UNITS:
-        building = name in BUILDING_NAMES
-        assert building or MAP[row][col] not in BLOCKED, name
+        assert MAP[row][col] not in BLOCKED, name
         hp, rng, dmg, rate, speed, _, _ = STATS[name.split('_')[0]]
         flags = unit_flags(name)
-        if ENEMY_WEST and not building:         # facing the other side
+        if ENEMY_WEST:                          # facing the other side
             flags ^= F_LEFT
-        spr = 0xFFFF if building else SPRITE_ORDER.index(name)
-        power = HQ_POWER if name == 'hq_p' else 0
-        foot = ((row - 1) * MAP_COLS + col - 1) | (3 << 8) if building else 0
-        recs.append((spr, row * MAP_COLS + col, flags, speed, hp, rng, dmg, rate,
-                     power & 0xFFFF, foot, unit_class(name)))
+        recs.append((SPRITE_ORDER.index(name), row * MAP_COLS + col, flags, speed, hp,
+                     rng, dmg, rate, 0, 0, 0, unit_class(name)))
+    for name, col, row in BUILDINGS:
+        hp, rng, dmg, rate, _, _, size, power = STRUCTS[name]
+        mid = size // 2 if size == 3 else 0
+        recs.append((template_offset(name), (row + mid) * MAP_COLS + col + mid,
+                     unit_flags(name), 0, hp, 0, 0, 0,
+                     (power if name.endswith('_p') else 0) & 0xFFFF,
+                     row * MAP_COLS + col, size, unit_class(name)))
     return recs
 
 
 def unit_flags(name):
     flags = F_PLAYER if name.endswith('_p') else F_LEFT
-    if name.startswith('turret'):
+    if name.startswith(('turret', 'tower')):
         flags |= F_STATIC
     if name.startswith('harv'):
         flags |= F_HARV
-    if name in BUILDING_NAMES or name in ('pp_p', 'bar_p'):
+    if name in BUILDING_NAMES:
         flags |= F_BUILDING | F_STATIC
     return flags
 
 
+TMPLSZ, ICONSZ = 30, 22
+
+
 def templates():
-    """Everything that can be built: (name, record) with the record as in
-    templates.bin: sprite, flags, speed, hp, range, damage, rate, cost,
-    frames per progress-bar segment (10 segments), kind (0 = unit that
-    rolls out, 1 = structure to place), size in tiles, power, class. For 2x2
-    structures, sprite is the first of their four quarters."""
+    """Everything that can be built, then the buildings that stand at the
+    start: (name, record) with the record as in templates.bin: sprite,
+    flags, speed, hp, range, damage, rate, cost, frames per progress-bar
+    segment (BARSEGS of them), kind (0 = unit that rolls out, 1 =
+    structure to place), size in tiles, power, class, name tag, the
+    template of the building it needs (NONE: none). For buildings, sprite
+    is the first of their pieces."""
     out = []
-    for name in ICON_UNITS + AI_BUILDS:
+    for name in ICON_UNITS + AI_BUILDS + STARTING:
         if name in [n for n, _ in out]:
             continue
         if name in STRUCTS:
             hp, rng, dmg, rate, cost, secs, size, power = STRUCTS[name]
-            spr = SPRITE_ORDER.index(name + '0' if size == 2 else name)
-            rec = (spr, unit_flags(name), 0, hp, rng, dmg, rate, cost,
-                   secs * 60 // 10, 1, size, power & 0xFFFF, unit_class(name))
+            spr = SPRITE_ORDER.index(name + '0' if size > 1 else name)
+            rec = [spr, unit_flags(name), 0, hp, rng, dmg, rate, cost,
+                   secs * 60 // BARSEGS, 1, size, power & 0xFFFF, unit_class(name)]
         else:
             hp, rng, dmg, rate, speed, cost, secs = STATS[name.split('_')[0]]
-            rec = (SPRITE_ORDER.index(name), unit_flags(name), speed, hp, rng,
-                   dmg, rate, cost, secs * 60 // 10, 0, 1, 0, unit_class(name))
+            rec = [SPRITE_ORDER.index(name), unit_flags(name), speed, hp, rng,
+                   dmg, rate, cost, secs * 60 // BARSEGS, 0, 1, 0, unit_class(name)]
+        rec.append(LABEL_NAMES.index(name) if name in LABEL_NAMES else 0xFFFF)
         out.append((name, rec))
-    return out
+    names = [n for n, _ in out]
+    for name, rec in out:
+        rec.append(names.index(NEEDS[name]) * TMPLSZ if name in NEEDS else 0xFFFF)
+    return [(n, tuple(r)) for n, r in out]
 
 
 def icon_queue(name):
@@ -1611,9 +1799,10 @@ def icon_dim(img, i):
 
 
 def icon_ready_pos(i):
-    """Sidebar top left of the READY label on icon i."""
+    """Sidebar top left of the READY label on icon i (across all of it)."""
     x0, y0, _, _ = icon_box(i)
-    return x0 + 3, y0 + 12
+    return x0, y0 + 10
+
 
 
 def ready_label():
@@ -1748,28 +1937,6 @@ def text_width(s):
 # -------------------------------------------------------------------- UI
 
 
-def mini_power():
-    """Power plant icon: a hall with two cooling towers."""
-    m = Model()
-    m.box(1, 19, 10, 15, 0, 3, 'steel')
-    m.paint(1, 19, 15, 15, 2, 2, 'team')
-    m.tower(6, 8, 4.3, 6)
-    m.tower(14.5, 8, 4.3, 6)
-    return model_sprite(m, 'player', 22, 20, 0, 4)
-
-
-def mini_barracks():
-    """Barracks icon: the hut with its porch and flag."""
-    m = Model()
-    m.hut(1, 18, 9, 6, 5, 'team')
-    m.paint(1, 18, 0, 16, 0, 6, 'teamdark', where=lambda x, y, z: x % 3 == 1)
-    m.box(7, 11, 13, 16, 0, 2, 'steel')
-    m.paint(8, 10, 16, 16, 0, 1, 'ink')
-    m.box(19, 19, 5, 5, 0, 7, 'dark')
-    m.box(16, 18, 5, 5, 5, 6, 'flag')
-    return model_sprite(m, 'player', 22, 20, 0, 3)
-
-
 CREDX = 20                      # byte column of the credits number
 
 
@@ -1858,18 +2025,18 @@ def make_sidebar(tiles, cells=None):
     if cells:                               # (the game puts the map's in)
         paste_all(s, radar_terrain(tiles, cells), RADAR_X, RADAR_Y)
 
-    # build menu: 2 x 3 icons on dark blue
+    # build menu: 3 x 4 icons on dark blue
     label(52, "BUILD")
-    pictures = {'pp_p': mini_power(), 'bar_p': mini_barracks(),
+    pictures = {'turret_p': turret('player'), 'tower_p': guard_tower('player'),
                 'tank_p': unit(TANK, 'player'), 'harv_p': unit(HARVESTER, 'player'),
-                'sold_p': unit(SOLDIER, 'player'), 'turret_p': turret('player'),
-                'buggy_p': unit(BUGGY, 'player'), 'rock_p': unit(ROCKET, 'player')}
+                'sold_p': unit(SOLDIER, 'player'), 'buggy_p': unit(BUGGY, 'player'),
+                'rock_p': unit(ROCKET, 'player')}
     for i, name in enumerate(ICON_UNITS):
-        icon = pictures[name]
+        icon = pictures.get(name) or mini_building(name.split('_')[0])
         x0, y0, x1, y1 = icon_box(i)
         panel(x0, y0, x1, y1, WATER_D)
-        h, w = len(icon), len(icon[0])
-        paste(s, icon, x0 + (26 - w) // 2 + 1, y0 + (24 - h) // 2 + 1)
+        assert len(icon) == 16 and len(icon[0]) == 16
+        paste(s, icon, x0 + 2, y0 + 2)
 
     # power bar
     label(160, "POWER")
@@ -1906,10 +2073,10 @@ def press_button(img, i, ox=0, oy=0):
 # ------------------------------------------------------------- the maps
 # Each map goes into CONQUER.DATA packed (rle) as one block that the game
 # unpacks into the same place at the start of a game; its parts in order:
-MAP_BLOCK = [('DOCK', 2), ('EXIT', 2), ('AIEXIT', 2), ('CAMX', 2), ('CAMY', 2),
+MAP_BLOCK = [('DOCK', 2), ('EXIT', 2), ('CAMX', 2), ('CAMY', 2),
              ('MAP', MAP_COLS * MAP_ROWS), ('PASS', MAP_COLS * MAP_ROWS),
              ('ORE', MAP_COLS * MAP_ROWS), ('RADAR', RADAR_W * RADAR_H // 2),
-             ('PREVIEW', RADAR_W * RADAR_H // 2), ('OVER', 80), ('UNITS', 16 * 22 + 4)]
+             ('PREVIEW', RADAR_W * RADAR_H // 2), ('OVER', 160), ('UNITS', 20 * 24 + 4)]
 
 
 def preview_terrain(tiles, cells):
@@ -1918,7 +2085,7 @@ def preview_terrain(tiles, cells):
     grass = cells[next(k for k, ch in enumerate(''.join(MAP)) if ch == 'g')]
     hidden = list(cells)
     for name, c, r in BUILDINGS:
-        if not name.endswith('_p'):
+        if not name.endswith('_p') and bsize(name) == 3:
             for y in range(r, r + 3):
                 for x in range(c, c + 3):
                     hidden[y * MAP_COLS + x] = grass
@@ -1935,9 +2102,8 @@ def map_block(tiles, cells, sprites):
     def tile(p):
         return p[1] * MAP_COLS + p[0]
     parts = {'DOCK': struct.pack('<H', tile(DOCK)), 'EXIT': struct.pack('<H', tile(EXIT)),
-             'AIEXIT': struct.pack('<H', tile(AIEXIT)),
-             'CAMX': struct.pack('<H', CAMERA0[0]), 'CAMY': struct.pack('<H', CAMERA0[1]),
-             'MAP': bytes(cells),
+
+             'CAMX': struct.pack('<H', CAMERA0[0]), 'CAMY': struct.pack('<H', CAMERA0[1]),             'MAP': bytes(cells),
              'PASS': bytes(1 if ch in BLOCKED else 0 for row in MAP for ch in row),
              'ORE': bytes(ORE_PER_TILE // SCOOP if ch == 'o' else 0
                           for row in MAP for ch in row),
@@ -1948,8 +2114,8 @@ def map_block(tiles, cells, sprites):
         over += struct.pack('<HH', t, spr)
     parts['OVER'] = bytes(over) + struct.pack('<H', 0xFFFF)
     units = unit_records()
-    assert len(units) <= 16
-    parts['UNITS'] = b''.join(struct.pack('<11H', *r) for r in units) + struct.pack('<2H', 0xFFFF, 0xFFFF)
+    assert len(units) <= 20
+    parts['UNITS'] = b''.join(struct.pack('<12H', *r) for r in units) + struct.pack('<2H', 0xFFFF, 0xFFFF)
     out = bytearray()
     for name, size in MAP_BLOCK:
         assert len(parts[name]) <= size, name
@@ -1965,10 +2131,24 @@ def map_checks():
         assert MAP[0][x] in BLOCKED and MAP[-1][x] in BLOCKED
     for y in range(MAP_ROWS):
         assert MAP[y][0] in BLOCKED and MAP[y][-1] in BLOCKED
-    for x, y in (DOCK, EXIT, AIEXIT):
-        assert MAP[y][x] not in BLOCKED + 'o', (x, y)
+    foot = set()
     for name, c, r in BUILDINGS:
-        assert all(MAP[y][x] == 'c' for y in range(r, r + 3) for x in range(c, c + 3)), name
+        n = bsize(name)
+        tiles = [(x, y) for y in range(r, r + n) for x in range(c, c + n)]
+        if n == 3:                              # on its concrete pad
+            assert all(MAP[y][x] == 'c' for x, y in tiles), name
+        else:                                   # on open ground
+            assert all(MAP[y][x] not in BLOCKED + 'o' for x, y in tiles), name
+        assert not foot & set(tiles), name
+        foot |= set(tiles)
+    doors = [door(name, c, r) for name, c, r in BUILDINGS     # (where units
+             if name.split('_')[0] in ('bar', 'fact', 'ref')]   # come out)
+
+    for x, y in [DOCK, EXIT] + doors:
+        assert MAP[y][x] not in BLOCKED + 'o' and (x, y) not in foot, (x, y)
+    for name, c, r in UNITS:
+        assert (c, r) not in foot and (c, r) not in doors, name
+
 
 # -------------------------------------------------------------- options
 # Before each game: the difficulty, the map and the music, then START.
@@ -2119,8 +2299,8 @@ def opt_markers():
     for i in range(len(MAPS)):
         use_map(i)
         dots = []
-        for name, c, r in BUILDINGS:                # (3x3 pads: the middle)
-            if name.endswith('_p'):
+        for name, c, r in BUILDINGS:                # (its 3x3 pad: the middle)
+            if name == 'hq_p':
                 x = OPT_PREV_X[i] + (c + 1) * 3 & ~1
                 y = OPT_PREV_Y + (r + 1) * 3
                 dots.append((y * 160 + x // 2, GOLD * 17, x, y, GOLD))
@@ -2152,9 +2332,12 @@ def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0):
 LABEL_H = 9
 NAMES = {'tank': 'TANK', 'harv': 'HARVESTER', 'buggy': 'BUGGY', 'sold': 'SOLDIER',
          'rock': 'ROCKET SOLDIER', 'turret': 'TURRET', 'hq': 'COMMAND CENTER',
-         'bar': 'BARRACKS', 'pp': 'POWER PLANT'}
-UNIT_LABELS = ['tank_p', 'tank_e', 'harv_p', 'buggy_p', 'buggy_e', 'sold_p', 'sold_e',
-               'rock_p', 'rock_e', 'turret_p', 'turret_e', 'hq_p', 'bar_p', 'bar_e', 'pp_p']
+         'bar': 'BARRACKS', 'pp': 'POWER PLANT', 'fact': 'WAR FACTORY',
+         'ref': 'REFINERY', 'radar': 'RADAR CENTER', 'tower': 'GUARD TOWER'}
+LABEL_NAMES = ['tank_p', 'tank_e', 'harv_p', 'buggy_p', 'buggy_e', 'sold_p', 'sold_e',
+               'rock_p', 'rock_e', 'turret_p', 'turret_e', 'tower_p', 'tower_e',
+               'hq_p', 'bar_p', 'bar_e', 'pp_p', 'pp_e', 'fact_p', 'fact_e', 'ref_p',
+               'ref_e', 'radar_p']
 
 
 def label_image(parts):
@@ -2174,15 +2357,29 @@ def label_image(parts):
 def labels():
     """(name, image) for every tag: the units', then the icons'."""
     out = []
-    for u in UNIT_LABELS:
+    for u in LABEL_NAMES:
         kind, side = u.split('_')
         out.append((u, label_image([(NAMES[kind], GOLD if side == 'p' else RED)])))
-    names = [n for n, _ in templates()]
     for i, u in enumerate(ICON_UNITS):
-        cost = templates()[names.index(u)][1][7]
+        cost = STRUCTS[u][4] if u in STRUCTS else STATS[u.split('_')[0]][5]
         out.append(('icon%d' % i, label_image([(NAMES[u.split('_')[0]], LIGHT),
                                                (str(cost), GOLD)])))
     return out
+
+
+def radar_offline():
+    """What the radar shows without a working radar center: dark, a little
+    static, and the words RADAR OFFLINE."""
+    img = blank(RADAR_W, RADAR_H, INK)
+    rng = random.Random(7)
+    for _ in range(70):
+        img[rng.randrange(RADAR_H)][rng.randrange(RADAR_W)] = STEEL_D
+    for y, s in ((11, "RADAR"), (19, "OFFLINE")):
+        x = (RADAR_W - text_width(s)) // 2
+        rect(img, x - 1, y - 1, x + text_width(s), y + 5, INK)
+        text(img, x, y, s, STEEL, shadow=None)
+    return img
+
 
 
 # ---------------------------------------------------------------- output
@@ -2330,12 +2527,11 @@ def title_prompt(outdir):
 
 def first_view(path, tiles, cells, sprites, top, side):
     """A picture of what the IIgs should show at the start of the map in
-    use: the first view, the top bar and the sidebar with the radar."""
-    side = copy(side)
-    paste_all(side, radar_terrain(tiles, cells), RADAR_X, RADAR_Y)
+    use: the first view, the top bar and the sidebar (its radar off: there
+    is no radar center yet)."""
     units = unit_records()
     seen = seen_tiles(units)
-    radar_dynamic(side, units, CAMERA0, seen)
+
     screen = blank(SCREEN_W, SCREEN_H)
     for y in range(TOP_H):
         screen[y] = top[y][:]
@@ -2468,6 +2664,8 @@ def main(outdir):
     for name, img in tags:
         tagtab += struct.pack('<2H', len(tagdata), len(img[0]) // 2)
         tagdata += pack(img)
+    radoff = len(tagdata)                       # (then the radar offline)
+    tagdata += pack(radar_offline())
     put_rle('labels.rle', bytes(tagdata))
     put('labtab.bin', bytes(tagtab))
     tagno = {name: i for i, (name, _) in enumerate(tags)}
@@ -2487,32 +2685,33 @@ def main(outdir):
     put('glyphs.bin', b''.join(pack(g) for g in digit_glyphs()))
 
     tmpl = templates()
-    TMPLSZ, ICONSZ = 26, 22
-    put('templates.bin', b''.join(struct.pack('<13H', *rec) for _, rec in tmpl))
+    put('templates.bin', b''.join(struct.pack('<15H', *rec) for _, rec in tmpl))
+    assert all(len(rec) * 2 == TMPLSZ for _, rec in tmpl)
     names = [n for n, _ in tmpl]
     icons = bytearray()
     for i, name in enumerate(ICON_UNITS):
         x0, y0, x1, y1 = icon_box(i)
         bx, by = icon_bar(i)
         rx, ry = icon_ready_pos(i)
-        assert bx % 2 == 0 and rx % 2 == 0
+        assert bx % 2 == 0 and rx % 2 == 0 and x0 % 2 == 0 and (x1 - x0 + 1) // 2 == ICONWB
         sx, sy = SIDE_X + bx, TOP_H + by
         icons += struct.pack('<11H', SIDE_X + x0, TOP_H + y0, SIDE_X + x1, TOP_H + y1,
                              names.index(name) * TMPLSZ,
                              sy * 160 + sx // 2,
-                             1 if name in NEEDS_BARRACKS else 0, sx, sy,
-                             icon_queue(name) * 2,
+                             names.index(NEEDS[name]) * TMPLSZ if name in NEEDS else 0xFFFF,
+                             sx, sy, icon_queue(name) * 2,
                              (TOP_H + ry) * 160 + (SIDE_X + rx) // 2)
     icons += struct.pack('<H', 0xFFFF)
     assert len(icons) == len(ICON_UNITS) * ICONSZ + 2
     put('icons.bin', bytes(icons))
     # icon middles on screen, for the test scripts
     with open(os.path.join(outdir, 'icons.lua'), 'w') as f:
-        f.write('-- generated by tools/makegfx.py: screen x, y of each build icon\n')
+        f.write('-- generated by tools/makegfx.py: screen x, y of each build icon, its number\n')
         f.write('return {\n')
         for i, name in enumerate(ICON_UNITS):
             x0, y0, x1, y1 = icon_box(i)
-            f.write('  %s = {%d, %d},\n' % (name, SIDE_X + (x0 + x1) // 2, TOP_H + (y0 + y1) // 2))
+            f.write('  %s = {%d, %d, n = %d},\n' % (name, SIDE_X + (x0 + x1) // 2,
+                                                     TOP_H + (y0 + y1) // 2, i))
         f.write('}\n')
     put('aiorder.bin', b''.join(struct.pack('<H', names.index(n) * TMPLSZ) for n in AI_BUILDS))
     dmg = bytearray(16)
@@ -2544,7 +2743,8 @@ def main(outdir):
     assert all(sight_radius(f, rng) <= MAX_SIGHT
                for _, (_, f, _, _, rng, *_) in templates())
     # the game keeps one code entry per sprite and tile (SPCODE, 256), and
-    # compiles them into bank 6 below the screen copier at $F000: per word
+    # compiles the sprites into bank 6 below the screen copier at $F000 and
+    # the map tiles into bank 9: per word
     # of 4 pixels LDA/STA (6 bytes) when solid or a tile, LDA/AND/ORA/STA
     # (12) when partly see-through, nothing when empty; RTL at the end
     assert len(SPRITE_ORDER) + len(tiles) <= 256
@@ -2556,8 +2756,9 @@ def main(outdir):
                 px = row[k:k + 4]
                 n += 6 if tile or all(px) else 12 if any(px) else 0
         return n
-    compiled = sum(code(sprites[k]) for k in SPRITE_ORDER) + sum(code(t, True) for t in tiles)
-    assert compiled <= 0xF000, compiled
+    compiled = sum(code(sprites[k]) for k in SPRITE_ORDER)       # (bank 6)
+    tilecode = sum(code(t, True) for t in tiles)                    # (bank 9)
+    assert compiled <= 0xF000 and tilecode <= 0x10000, (compiled, tilecode)
     put('btnmap.bin', bytes(BUTTON_ON.get(c, c) for c in range(16)))
     # the bytes a pressed button changes must not reach past its edges
     for i in range(2):
@@ -2581,7 +2782,11 @@ def main(outdir):
            'CREDITS0': CREDITS0, 'CREDX': CREDX, 'CAPACITY': CAPACITY,
            'TILE_EMPTY': len(tiles) - 2, 'TILE_SHROUD': len(tiles) - 1,
            'SPR_FOG': SPRITE_ORDER.index('fog_n'), 'TMPLSZ': TMPLSZ, 'ICONSZ': ICONSZ,
-           'TMPL_BAR': names.index('bar_p') * TMPLSZ,
+           **{'TMPL_' + n.upper().replace('_', ''): names.index(n) * TMPLSZ
+              for n in ('hq_p', 'bar_p', 'bar_e', 'fact_p', 'fact_e', 'ref_p', 'ref_e',
+                        'radar_p', 'pp_e', 'harv_p')},
+           'BARSEGS': BARSEGS, 'ICONWB': ICONWB,
+           'RADOFFADDR': labeladdr + radoff,
            'NGLYPHS': len(GLYPHS), 'NTILES': len(tiles), 'SCOOP': SCOOP,
            'MAPW': MAP_COLS, 'MAPH': MAP_ROWS,
            'RADX': SIDE_X + RADAR_X, 'RADY': TOP_H + RADAR_Y,
@@ -2597,8 +2802,7 @@ def main(outdir):
            **{'MB_' + name: sum(n for _, n in MAP_BLOCK[:k]) for k, (name, _) in enumerate(MAP_BLOCK)},
            'MB_SIZE': sum(n for _, n in MAP_BLOCK),
            'LABELADDR': labeladdr, 'NLABELS': len(tags), 'LABELH': LABEL_H,
-           'LBL_HQ': tagno['hq_p'], 'LBL_BARP': tagno['bar_p'], 'LBL_BARE': tagno['bar_e'],
-           'LBL_PP': tagno['pp_p'], 'LBL_ICON0': tagno['icon0'],
+           'LBL_ICON0': tagno['icon0'],
            'PREV0OFF': OPT_PREV_Y * 160 + OPT_PREV_X[0] // 2,
            'PREV1OFF': OPT_PREV_Y * 160 + OPT_PREV_X[1] // 2,
            'PREVW': RADAR_W, 'PREVH': RADAR_H * 2,
@@ -2659,12 +2863,19 @@ def main(outdir):
         f.write('%-10s equ   %d\n' % ('DATASIZE', len(data)))
 
     # what the game draws over that at the start: numbers, power bar, the
-    # soldier icon greyed out (no barracks yet)
-    topbar_numbers(top, CREDITS0, 0, HQ_POWER)
-    power_bar(side, 0, HQ_POWER)
+    # soldier icons greyed out (no barracks yet), the radar off (no radar
+    # center)
+    use_map(0)
+    have = {name for name, _, _ in BUILDINGS if name.endswith('_p')}
+    made = sum(STRUCTS[n][7] for n in have if STRUCTS[n][7] > 0)
+    used = -sum(STRUCTS[n][7] for n in have if STRUCTS[n][7] < 0)
+    topbar_numbers(top, CREDITS0, used, made)
+    power_bar(side, used, made)
     for i, name in enumerate(ICON_UNITS):
-        if name in NEEDS_BARRACKS:
+        if name in NEEDS and NEEDS[name] not in have:
             icon_dim(side, i)
+    paste_all(side, radar_offline(), RADAR_X, RADAR_Y)
+
     for i, cells in enumerate(maps):
         use_map(i)
         first_view(os.path.join(outdir, 'preview.png' if i == 0 else 'preview%d.png' % (i + 1)),

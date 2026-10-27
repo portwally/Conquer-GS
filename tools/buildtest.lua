@@ -25,7 +25,12 @@ local function structures(tag)
   end
 end
 -- placement spots (top-left tiles) near the command center at (2..4, 18..20)
-local PP, BAR, TUR, WATER = {5, 16}, {2, 21}, {8, 20}, {13, 12}
+-- (the war factory stands at (5..6, 16..17))
+local PP, BAR, TUR, WATER = {2, 16}, {2, 21}, {8, 20}, {13, 12}
+local function pptiles(tag)
+  print(string.format("  %s: tiles (%d,%d) to (%d,%d) passable:", tag, PP[1], PP[2], PP[1] + 1, PP[2] + 1),
+    passable(PP[1], PP[2]), passable(PP[1] + 1, PP[2]), passable(PP[1], PP[2] + 1), passable(PP[1] + 1, PP[2] + 1))
+end
 local function placexy(spot, size)    -- mouse for a structure's top left
   local x, y = G.tilexy(spot[1], spot[2])
   return x + (size - 1) * 8, y + (size - 1) * 8
@@ -46,8 +51,7 @@ G.at(1135, function() G.mouse(placexy(PP, 2)) end)
 G.at(1142, function() report("good spot"); G.dump("p2_green") end)
 G.at(1144, function() G.click(1145, placexy(PP, 2)) end)
 G.at(1160, function()
-  report("pp placed")
-  print("  tiles (5,16) (6,16) (5,17) (6,17) passable:", passable(5, 16), passable(6, 16), passable(5, 17), passable(6, 17))
+  report("pp placed"); pptiles("placed")
 end)
 G.click(1170, icon.bar[1], icon.bar[2])                   -- build barracks
 G.click(1680, icon.bar[1], icon.bar[2])                   -- place it
@@ -73,8 +77,7 @@ G.at(2330, function()                                     -- enemy tank 5 vs pow
   print("  power plant is unit " .. pp .. "; enemy tank 5 sent at it")
 end)
 G.at(5400, function()
-  report("pp attacked"); structures("structures")
-  print("  tiles (5,16) (6,16) (5,17) (6,17) passable:", passable(5, 16), passable(6, 16), passable(5, 17), passable(6, 17))
+  report("pp attacked"); structures("structures"); pptiles("razed")
   G.dump("p4_razed")
 end)
 G.run(5405, function(f) if f >= 600 then G.mem:write_u16(V.AICREDITS, 0) end end)

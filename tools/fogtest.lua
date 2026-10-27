@@ -181,6 +181,7 @@ G.at(2400, function()
   G.dump("f2_found")
   G.units("arrived")
 end)
+G.at(661, G.radar)                                        -- (radar on)
 G.run(2405, function(f)
   if f > 700 then mem:write_u16(V.AICREDITS, 0) end                   -- no new enemies
   -- (a frame can end in the middle of uncovering a tile: if the table looks
