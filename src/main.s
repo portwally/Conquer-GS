@@ -462,9 +462,10 @@ main     sei                    ; no interrupts: we own the machine
          ora   #$40             ; linear SHR memory: must be set before
          sta   NEWVIDEO         ; writing to $E1/2000, or bytes land
                                 ; in the IIe interleaved layout
-         jsr   loadtitle        ; (while ProDOS is still in charge: the
-         jsr   loaddata         ;   title shows while the rest loads)
-         jsr   loadsound
+         jsr   loadmsg          ; (while ProDOS is still in charge, on
+         jsr   loadtitle        ;   the text screen: LOADING and a dot
+         jsr   loaddata         ;   for every 4K read; the title shows
+         jsr   loadsound        ;   once the game is ready, with music)
          lda   SHADOW
          ora   #$3E             ; no shadowing of banks 0/1 into E0/E1,
          sta   SHADOW           ; so bank 1 can be a private buffer (and
@@ -7164,15 +7165,24 @@ loadtitle
          sta   lfsize+1
          jsr   loadfile
          bcs   :rts
-         lda   CLOCKCTL
-         and   #$F0             ; black border
-         sta   CLOCKCTL
-         lda   NEWVIDEO
-         ora   #$80             ; Super Hi-Res on: the title shows
-         sta   NEWVIDEO
-         lda   #1
-         sta   TITLEWAIT        ; (restart waits for a click on it)
+         lda   #1               ; (on the screen, but not shown yet:
+         sta   TITLEWAIT        ;   restart shows it, then waits for a
+:rts     rts                    ;   click on it)
+
+* loadmsg: CONQUER GS and LOADING on the text screen (the loader adds a
+* dot for every 4K it reads)
+loadmsg  jsr   HOME
+         ldx   #0
+:p       lda   lmsg,x
+         beq   :rts
+         jsr   COUT
+         inx
+         bne   :p
 :rts     rts
+lmsg     dfb   $8D,$8D,$8D,$8D,$8D,$8D,$8D,$8D,$8D
+         asc   "               CONQUER GS",8D,8D
+         asc   "                LOADING",8D,8D
+         asc   "     ",00
 
 * loaddata: the packed screens and sprites, CONQUER.DATA, into DATABANK
 * at DATAADDR. Without it the game cannot run: it says so on the text
@@ -7263,7 +7273,9 @@ loadfile lda   lfname           ; (the name, for bootpath)
          beq   :end
          inc   lfbad
 :end     jmp   :eof
-:got     clc                    ; (native mode: 16-bit sums, long
+:got     lda   #"."             ; (a dot on the loading screen)
+         jsr   COUT
+         clc                    ; (native mode: 16-bit sums, long
          xce                    ;   stores)
          rep   #$30
          mx    %00
@@ -7428,9 +7440,10 @@ failmsg  asc   "CONQUER.DATA IS MISSING OR DAMAGED.",8D
          asc   "IT MUST BE NEXT TO CONQUER.SYSTEM.",00
          mx    %00
 
-* title: (native) the title picture is up: draw CLICK TO START on it
-* (from CONQUER.DATA: see-through where 0) and wait for a click, a key,
-* or a test script clearing TITLEWAIT
+* title: (native) the title picture is on the screen, not shown yet:
+* draw CLICK TO START on it (from CONQUER.DATA: see-through where 0),
+* show it, start the title tune, and wait for a click, a key, or a test
+* script clearing TITLEWAIT
 title    lda   #DATAADDR+DATA_PROMPT
          sta   lsrc
          lda   #DATABANK
@@ -7476,6 +7489,16 @@ title    lda   #DATAADDR+DATA_PROMPT
          sta   dst
          dec   ty
          bne   :row
+         sep   #$20             ; now the title shows (it was loaded
+         mx    %10              ;   while the text screen said LOADING)
+         lda   CLOCKCTL
+         and   #$F0             ; black border
+         sta   CLOCKCTL
+         lda   NEWVIDEO
+         ora   #$80             ; Super Hi-Res on
+         sta   NEWVIDEO
+         rep   #$20
+         mx    %00
          lda   MUSICOFF         ; the title tune (on into the options)
          bne   :wait
          lda   #TUNE_TITLE

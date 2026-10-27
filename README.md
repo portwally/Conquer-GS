@@ -13,8 +13,10 @@ written in 65816 assembly.
 The disk holds ProDOS 8, the game (CONQUER.SYSTEM), its packed graphics
 (CONQUER.DATA), its sound effects (CONQUER.SOUND) and the title picture
 (CONQUER.TITLE, from `assets/title.shr`). The game reads its files from its own folder, or else
-from the top folder of the disk it started from. The title shows as soon as
-it is loaded; CLICK TO START appears on it once the game is ready, and a
+from the top folder of the disk it started from. While it loads, the text
+screen shows CONQUER GS and LOADING with a dot for every 4K read (the
+title picture goes straight into screen memory, not shown yet); once the
+game is ready, the title appears with its music and CLICK TO START, and a
 click or a key goes on to the options screen (see Options and maps):
 choose the difficulty and the map, then click START or press RETURN. After
 a game ends, a click on the banner brings the options back, set as last
