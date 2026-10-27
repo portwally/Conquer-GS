@@ -283,7 +283,10 @@ radarall equ   radoff+$2        ; test scripts: nonzero = radar without
 factunit equ   radarall+$2      ; the enemy's war factory, refinery and
 refunit  equ   factunit+$2      ;   power plant (unit * 2; see standing)
 ppunit   equ   refunit+$2
-VARSEND  equ   ppunit+$2
+paused   equ   ppunit+$2        ; nonzero: the game is paused (the P key)
+pmusic   equ   paused+$2        ;   and the music was playing
+bnoff    equ   pmusic+$2        ; drawbanner: where its picture is
+VARSEND  equ   bnoff+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -295,7 +298,7 @@ GAMEGO   equ   $BE02            ; $C0DE once the game runs
 OPTWAIT  equ   $BE04            ; nonzero: the options screen is up (a
                                 ;   test script clears it to start)
 DIFF     equ   $BE06            ; the difficulty chosen (0-2), the map
-MAPNO    equ   $BE08            ;   (0-1) and whether the music is off
+MAPNO    equ   $BE08            ;   (0-3) and whether the music is off
 MUSICOFF equ   $BE0A            ;   (0-1): kept from game to game
 
 *--- fog of war, in bank 1 above the work buffer
@@ -647,7 +650,9 @@ mainloop jsr   musictick        ; (the music keeps time: see musictick)
          lda   #NONE
          sta   lookx
          jsr   moveview
-:play    lda   gameover
+:play    lda   paused
+         bne   :paused
+         lda   gameover
          bne   :over
          jsr   scroll
          jsr   updplace
@@ -667,10 +672,17 @@ mainloop jsr   musictick        ; (the music keeps time: see musictick)
 :over    lda   click            ; game over: a click starts again
          beq   :wait
          jmp   restart
+:paused  jsr   updcursor        ; paused: only the panel and the arrow
+         jsr   pauseinput
+         bcc   :pz
+         stz   paused           ; QUIT MISSION: to the mission setup
+         jmp   restart
+:pz      jsr   render
+         jmp   mainloop
 :wait    jsr   updcursor
          jsr   updlabel         ; (the tag goes)
          jsr   render
-         bra   mainloop
+         jmp   mainloop
 
 *-------------------------------------------------------------------
 * waitvbl: wait for the next change of the vertical blank bit
@@ -1247,7 +1259,10 @@ updcursor
          sta   lcx
          lda   cy
          sta   lcy
-         lda   cmdmode          ; selling or repairing: $ or wrench over
+         lda   paused           ; paused: the arrow
+         beq   :mode
+         jmp   :arrow
+:mode    lda   cmdmode          ; selling or repairing: $ or wrench over
          beq   :normal          ; what it works on, else "no" on the map
          jsr   inmap
          bcs   :mmap
@@ -2597,7 +2612,8 @@ render   stz   fullview
          lda   boxon
          beq   :over
          jsr   drawbox
-:over    lda   gameover
+:over    lda   gameover         ; the end-of-game panel, or the pause one
+         ora   paused
          beq   :label
          jsr   drawbanner
 :label   lda   lblnum           ; a name tag
@@ -4343,7 +4359,15 @@ scroll   stz   tmp              ; tmp, tmp2 = step in x, y
          rep   #$20
          mx    %00
          and   #$007F
-         cmp   #$4D             ; M (or m): the music off or on
+         cmp   #$1B             ; Esc: nothing selected, nothing to place,
+         bne   :pkey            ;   no selling or repairing
+         jmp   escape
+:pkey    cmp   #$50             ; P (or p): pause
+         beq   :pause
+         cmp   #$70
+         bne   :mkey
+:pause   jmp   pause
+:mkey    cmp   #$4D             ; M (or m): the music off or on
          beq   :music
          cmp   #$6D
          bne   :arrow
@@ -6118,6 +6142,89 @@ musictick
          plx
 :rts     rts
 
+* escape: the Esc key - no unit selected, no structure being placed (it
+* stays ready), no selling or repairing
+escape   jsr   deselect
+         stz   placing
+         stz   boxon
+         stz   dragging
+         lda   #0
+         jmp   setmode
+
+* pause: the P key - the game stops, the music too, under a panel with
+* RESUME and QUIT MISSION (see pauseinput)
+pause    lda   #1
+         sta   paused
+         stz   pmusic
+         lda   musicon
+         beq   :quiet
+         inc   pmusic
+         stz   musicon
+         jsr   musstop
+:quiet   stz   dragging
+         stz   boxon
+         jsr   hidelabel
+         jmp   markbanner
+
+* unpause: on with the game (the panel's cells drawn again), the battle
+* tune again if it was playing
+unpause  stz   paused
+         jsr   markbanner
+         lda   pmusic
+         beq   :rts
+         lda   #TUNE_BATTLE
+         jsr   musstart
+         lda   #1
+         sta   musicon
+:rts     rts
+
+* pauseinput: while paused - P, Esc or RETURN, or a click on RESUME, goes
+* on; Q, or a click on QUIT MISSION: carry set (back to the mission setup)
+pauseinput
+         sep   #$20
+         mx    %10
+         lda   KBD
+         bmi   :key
+         rep   #$20
+         mx    %00
+         bra   :mouse
+:key     sta   KBDSTRB
+         rep   #$20
+         mx    %00
+         and   #$005F           ; (capitals)
+         cmp   #$51             ; Q
+         beq   :quit
+         cmp   #$50             ; P
+         beq   :go
+         and   #$001F           ; Esc ($1B) or RETURN ($0D)
+         cmp   #$1B
+         beq   :go
+         cmp   #$0D
+         beq   :go
+:mouse   lda   click
+         beq   :stay
+         lda   cy
+         cmp   #PBTNY0
+         bcc   :stay
+         cmp   #PBTNY1+1
+         bcs   :stay
+         lda   cx
+         cmp   #PRESX0
+         bcc   :stay
+         cmp   #PRESX1+1
+         bcc   :go
+         cmp   #PQUITX0
+         bcc   :stay
+         cmp   #PQUITX1+1
+         bcc   :quit
+:stay    clc
+         rts
+:go      jsr   unpause
+         clc
+         rts
+:quit    sec
+         rts
+
 * togglemusic: the M key - the music off, or the battle tune on again
 togglemusic
          lda   MUSICOFF
@@ -7156,8 +7263,14 @@ markbanner
 * exactly two cell rows; each is redrawn only if one of its cells under
 * the panel is dirty.
 drawbanner
-         lda   #WINBANK
-         ldy   gameover
+         stz   bnoff
+         lda   #WINBANK         ; paused: the pause panel, at +$8000 in
+         ldy   paused           ;   the win banner's bank
+         beq   :end
+         ldy   #$8000
+         sty   bnoff
+         bra   :src
+:end     ldy   gameover
          cpy   #1
          beq   :src
          lda   #LOSEBANK
@@ -7186,8 +7299,10 @@ drawbanner
          lda   ytab,x
          clc
          adc   #$2000+{BANNERX0/2}
-         sta   lsrc
          sta   dst
+         clc
+         adc   bnoff
+         sta   lsrc
          lda   #BANNERW
          sta   width
          lda   #16
@@ -7848,8 +7963,9 @@ options  jsr   optmusic
          lda   #CURY0
          sta   cy
          sta   lcy
-         stz   btn
-         jsr   curshow
+         lda   #1               ; (the button counts as down: a click that
+         sta   btn              ;   left the title or the last game is
+         jsr   curshow          ;   still held, and must not pick a map)
          lda   #1
          sta   OPTWAIT
 :loop    jsr   waitvbl
@@ -7858,14 +7974,16 @@ options  jsr   optmusic
          jsr   musplay
 :quiet   jsr   readmouse
          lda   OPTWAIT
-         beq   :go
-         sep   #$20
+         bne   :keys
+         jmp   :go
+:keys    sep   #$20
          mx    %10
          lda   KBD
          bpl   :nokey
          sta   KBDSTRB
          cmp   #$8D             ; RETURN
-         beq   :go8
+         bne   :nokey
+         jmp   :go8
 :nokey   rep   #$20
          mx    %00
          lda   click
@@ -7888,9 +8006,7 @@ options  jsr   optmusic
          sta   MUSICOFF
          jsr   optmusic
          bra   :redraw
-:map     sec
-         sbc   #16
-         sta   MAPNO
+:map     jsr   pickmap
 :redraw  jsr   optbtns
          jsr   curshow
 :move    lda   cx               ; the arrow follows the mouse
@@ -7923,6 +8039,23 @@ options  jsr   optmusic
          sta   MUSICOFF
          stz   musicon          ; (the title tune stops)
          jmp   musstop
+
+* pickmap: A = 16: the previous map, 17: the next one (the arrows; a
+* click on the map or its name is the next one too) - and draw it
+pickmap  cmp   #17
+         beq   :next
+         lda   MAPNO
+         bne   :prev
+         lda   #NMAPS
+:prev    dec
+         bra   :set
+:next    lda   MAPNO
+         inc
+         cmp   #NMAPS
+         bcc   :set
+         lda   #0
+:set     sta   MAPNO
+         jmp   previews
 
 * optmusic: the title tune playing if the music is on, else silence
 optmusic lda   MUSICOFF
@@ -7969,7 +8102,7 @@ opthit   ldx   #0
          rts
 
 * optbtns: draw the options screen's buttons from the clean copy, the
-* chosen difficulty's, map's and music's lit (colors through optbtn)
+* chosen difficulty's and music's lit (colors through optbtn)
 optbtns  ldx   #0
 :next    lda   opttab,x
          cmp   #NONE
@@ -7984,11 +8117,7 @@ optbtns  ldx   #0
          cmp   DIFF
          beq   :on
          sec
-         sbc   #16
-         cmp   MAPNO
-         beq   :on
-         sec
-         sbc   #32
+         sbc   #48
          cmp   MUSICOFF
          bne   :draw
 :on      inc   tmp3
@@ -8048,27 +8177,37 @@ optrect
          bne   :row
          rts
 
-* previews: each map's preview picture (the radar's without the enemy's
-* base), twice the size, with a gold dot on ours (optmark)
-previews stz   optmap
-:map     lda   optmap
+* previews: the chosen map's preview picture (the radar's without the
+* enemy's base), twice the size, with a gold dot on ours (optmark), and
+* its name below (a picture after the name tags in the sprite bank)
+previews lda   MAPNO
          jsr   unmap
-         lda   optmap
-         asl
-         tax
-         lda   prevoff,x
+         lda   #PREVOFF
          jsr   preview
-         lda   optmap
+         lda   MAPNO
          asl
          asl
          tax
          jsr   optdot
-         inc   optmap
-         lda   optmap
-         cmp   #NMAPS
-         bne   :map
-         rts
-prevoff  dw    PREV0OFF,PREV1OFF
+         lda   #MAPNAMES        ; its name: MAPNAMESZ bytes each
+         ldx   MAPNO
+:nm      dex
+         bmi   :name
+         clc
+         adc   #MAPNAMESZ
+         bra   :nm
+:name    sta   lsrc
+         lda   #SPRBANK
+         sta   lsrc+2
+         lda   #$2000+NAMEOFF
+         sta   dst
+         lda   #^SHR
+         sta   dst+2
+         lda   #MAPNAMEW
+         sta   width
+         lda   #MAPNAMEH
+         sta   height
+         jmp   pastelong
 
 * preview: mapblk's preview picture, twice the size, at screen offset A
 preview  clc
@@ -8236,7 +8375,8 @@ unmap    asl
          ldx   #0
          ldy   #mapblk
          jmp   unrle
-mapdata  dw    DATAADDR+DATA_MAP0,DATAADDR+DATA_MAP1
+mapdata  putbin ../build/gfx/maptab.bin  ; each map's block in CONQUER.DATA
+
 
 *-------------------------------------------------------------------
 * name tags: when the mouse has rested on a unit or building we can see,
@@ -8557,6 +8697,11 @@ unpack   lda   #DATAADDR+DATA_UI
          ldx   #LOSEBANK
          ldy   #$2000
          jsr   unrle
+         lda   #DATAADDR+DATA_PAUSE  ; (the pause panel's rows: in the
+         ldx   #WINBANK              ;   win banner's bank at +$8000)
+         ldy   #$A000
+         jsr   unrle
+
          lda   #DATAADDR+DATA_LABELS
          ldx   #SPRBANK
          ldy   #LABELADDR

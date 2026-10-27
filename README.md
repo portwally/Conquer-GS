@@ -21,8 +21,8 @@ with Ensoniq sound and music.
 - **A computer opponent** with a base of its own that builds an army and
   attacks in waves, at three difficulties: easy, normal and hard. Destroy
   its war factory, refinery or power plant to slow it down.
-- **Two maps,** Green Valley and River Crossing, with fog of war: you have
-  to scout to find the enemy.
+- **Four maps,** Green Valley, River Crossing, Twin Lakes and Stone Pass,
+  with fog of war: you have to scout to find the enemy.
 - **A scrolling battlefield** twice the size of the screen, with a radar
   that shows the whole world once you have built a radar center.
 - **Original pixel art** in Super Hi-Res (320x200, 16 colors); units face the
@@ -71,6 +71,7 @@ with its music.
 
 **Your goal:** destroy every enemy unit and building. You lose if your
 command center is destroyed. After a game, click the banner to play again.
+To stop for a moment, press P; from there you can also quit the mission.
 
 ### Starting a game
 
@@ -79,8 +80,9 @@ command center is destroyed. After a game, click the banner to play again.
 Click (or press a key) on the title. On the mission setup screen choose:
 
 - **Difficulty:** easy, normal or hard.
-- **Map:** Green Valley or River Crossing. The preview shows your base as a
-  gold dot; where the enemy is, you find out by scouting.
+- **Map:** one of four, picked with the arrows on either side of the
+  preview (or a click on the map for the next one). The preview shows your
+  base as a gold dot; where the enemy is, you find out by scouting.
 - **Music:** on or off.
 
 Then click START or press RETURN. Your choices are kept for the next game.
@@ -91,6 +93,7 @@ Then click START or press RETURN. Your choices are kept for the next game.
 |---|---|
 | Select a unit | Click it |
 | Select several units | Drag a box around them |
+| Unselect | Esc (or drag a box over empty ground) |
 | Move | With units selected, click open ground (a green cross) |
 | Attack | With units selected, click an enemy (a red cross) |
 | Scroll the view | Arrow keys, or hold the mouse at an edge of the screen |
@@ -99,7 +102,10 @@ Then click START or press RETURN. Your choices are kept for the next game.
 | Place a structure | When it says READY, click the icon again, then a spot where the outline is green |
 | Sell or repair | Click SELL or REPAIR, then one of your structures; click the button again to stop |
 | See what something is | Rest the mouse on it |
+| Cancel placing a structure, selling or repairing | Esc |
+| Pause | P; then RESUME (or P, Esc, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
 | Turn the music off or on | M |
+
 
 ### Economy and power
 

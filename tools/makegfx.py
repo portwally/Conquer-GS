@@ -476,6 +476,95 @@ def river_crossing():
     return [''.join(row) for row in m]
 
 
+def twin_lakes():
+    """Map 3: two lakes in the middle with a land bridge between them;
+    our base in the north-west, theirs in the south-east."""
+    m, paint, dots = new_world()
+    for y, (x0, x1) in {9: (11, 13), 10: (10, 14), 11: (9, 14), 12: (10, 14),
+                        13: (11, 13)}.items():      # the western lake
+        paint('w', x0, y, x1, y)
+    for y, (x0, x1) in {10: (18, 20), 11: (17, 21), 12: (17, 22), 13: (17, 21),
+                        14: (18, 20)}.items():      # the eastern lake
+        paint('w', x0, y, x1, y)
+    paint('w', 25, 4, 26, 5)                    # ponds
+    dots('w', ((27, 5),))
+    paint('w', 5, 17, 6, 18)
+    dots('w', ((4, 18),))
+    # roads: from our base east, south over the bridge, east to theirs
+    paint('d', 5, 5, 15, 5)
+    paint('d', 15, 5, 15, 17)
+    paint('d', 16, 9, 16, 14)                   # (the bridge is two wide)
+    paint('d', 15, 17, 25, 17)
+    paint('d', 25, 17, 25, 18)
+    # ore: by each base, on either side of the bridge, in two corners
+    paint('o', 7, 7, 10, 9)
+    dots('g', ((10, 7), (7, 9)))
+    paint('o', 18, 19, 21, 21)
+    dots('g', ((18, 21), (21, 19)))
+    paint('o', 17, 6, 19, 8)
+    dots('g', ((19, 6),))
+    paint('o', 12, 15, 14, 16)
+    dots('g', ((12, 16),))
+    paint('o', 27, 2, 29, 3)
+    paint('o', 2, 20, 4, 21)
+    # forests and rocks
+    dots('t', ((2, 13), (3, 14), (2, 15), (8, 12), (7, 13), (12, 2), (13, 3), (21, 3),
+               (22, 2), (23, 3), (28, 9), (29, 10), (28, 11), (9, 19), (10, 20), (9, 21),
+               (24, 8), (6, 21), (29, 22), (30, 13), (20, 16), (3, 9)))
+    dots('r', ((5, 13), (11, 18), (22, 7), (26, 11), (13, 21), (8, 2), (30, 7),
+               (19, 4), (24, 12)))
+    # base pads
+    paint('c', 2, 3, 4, 5)                      # the player's command center
+    paint('c', 26, 18, 28, 20)                  # the enemy barracks
+    return [''.join(row) for row in m]
+
+
+def stone_pass():
+    """Map 4: a ridge of rock and forest runs from north to south through
+    the middle, open at a pass in the north and one in the south; our base
+    in the west, theirs in the east."""
+    m, paint, dots = new_world()
+    for y in range(1, 23):
+        if y in (5, 6, 7, 16, 17, 18):          # the passes
+            continue
+        x0, x1 = 15 - (y % 3 == 0), 16 + (y % 4 == 1)
+        for x in range(x0, x1 + 1):
+            m[y][x] = 'r' if (x + y) % 3 else 't'
+    for x, y in ((14, 4), (17, 8), (14, 15), (17, 19)):   # rough pass edges
+        m[y][x] = 'r'
+    paint('w', 6, 2, 8, 3)                      # ponds
+    dots('w', ((7, 4),))
+    paint('w', 23, 19, 25, 20)
+    dots('w', ((24, 21),))
+    # roads: from our base east, north, over the north pass, south to
+    # theirs; a branch over the south pass
+    paint('d', 5, 11, 12, 11)
+    paint('d', 12, 6, 12, 17)
+    paint('d', 12, 6, 19, 6)
+    paint('d', 19, 6, 19, 11)
+    paint('d', 19, 11, 26, 11)
+    paint('d', 12, 17, 20, 17)
+    paint('d', 20, 12, 20, 16)
+    # ore: by each base, at each pass, in two corners
+    paint('o', 7, 13, 10, 15)
+    dots('g', ((10, 13), (7, 15)))
+    paint('o', 26, 15, 29, 17)
+    dots('g', ((29, 15), (26, 17)))
+    paint('o', 9, 4, 11, 5)
+    paint('o', 21, 19, 22, 21)
+    paint('o', 2, 19, 4, 21)
+    dots('g', ((4, 19),))
+    paint('o', 27, 2, 29, 3)
+    # forests and rocks
+    dots('t', ((2, 3), (3, 2), (2, 4), (4, 17), (5, 18), (3, 16), (9, 20), (10, 21),
+               (22, 3), (23, 2), (24, 4), (29, 20), (28, 21), (8, 8), (25, 7), (21, 14)))
+    dots('r', ((10, 18), (6, 6), (27, 5), (23, 15), (2, 8), (29, 13), (11, 1), (21, 22)))
+    # base pads
+    paint('c', 2, 10, 4, 12)                    # the player's command center
+    paint('c', 27, 10, 29, 12)                  # the enemy barracks
+    return [''.join(row) for row in m]
+
+
 MAP = green_valley()            # (the map being worked on: see use_map)
 
 SIDES = {'N': (0, -1), 'S': (0, 1), 'W': (-1, 0), 'E': (1, 0)}
@@ -1559,7 +1648,28 @@ MAPS = [
                ('turret_e', 7, 3), ('tower_e', 10, 4), ('tower_e', 8, 9)],
      'dock': (25, 18), 'exit': (25, 19), 'camera': (16, 12),
      'enemy_west': True},
+    {'name': 'TWIN LAKES', 'rows': twin_lakes(),
+     'buildings': [('hq_p', 2, 3), ('bar_e', 26, 18), ('fact_p', 5, 1),
+                   ('fact_e', 29, 18), ('ref_e', 23, 14), ('pp_e', 28, 15)],
+     'units': [('tank_p', 6, 4), ('tank_p', 6, 6), ('harv_p', 8, 8),
+               ('sold_p', 4, 7), ('sold_p', 5, 7),
+               ('tank_e', 23, 20), ('tank_e', 24, 21),
+               ('sold_e', 22, 19), ('sold_e', 23, 19), ('sold_e', 22, 21),
+               ('turret_e', 25, 19), ('tower_e', 21, 17), ('tower_e', 27, 13)],
+     'dock': (5, 4), 'exit': (5, 5), 'camera': (0, 0),
+     'enemy_west': False},
+    {'name': 'STONE PASS', 'rows': stone_pass(),
+     'buildings': [('hq_p', 2, 10), ('bar_e', 27, 10), ('fact_p', 5, 7),
+                   ('fact_e', 24, 8), ('ref_e', 24, 13), ('pp_e', 29, 6)],
+     'units': [('tank_p', 6, 11), ('tank_p', 6, 13), ('harv_p', 8, 14),
+               ('sold_p', 4, 14), ('sold_p', 5, 14),
+               ('tank_e', 23, 12), ('tank_e', 22, 13),
+               ('sold_e', 23, 10), ('sold_e', 21, 12), ('sold_e', 22, 10),
+               ('turret_e', 22, 11), ('tower_e', 20, 6), ('tower_e', 21, 18)],
+     'dock': (5, 11), 'exit': (5, 12), 'camera': (0, 5),
+     'enemy_west': False},
 ]
+
 
 
 def use_map(i):
@@ -2159,8 +2269,10 @@ def map_checks():
 
 OPT_DIFF_Y = 35                 # difficulty buttons' top
 OPT_PREV_Y = 72                 # map previews' top (inside their frames)
-OPT_PREV_X = (44, 180)
-OPT_NAME_Y = 152                # map name buttons' top
+OPT_PREV_X = 112                # the map preview's left (one map at a time)
+OPT_NAME_Y = 152                # its name's top
+OPT_ARROWS = ((60, 89), (230, 259))   # previous and next map buttons (x)
+OPT_ARROW_Y = (98, 118)
 OPT_START = (124, 172, 195, 192)
 OPT_BTN_H = 13
 # a chosen button lights up green: its colors through OPT_ON (the game's
@@ -2259,18 +2371,28 @@ def options_screen():
         x0 = 100 + i * 66
         opt_button(img, x0, OPT_DIFF_Y, x0 + 59, OPT_DIFF_Y + OPT_BTN_H - 1, name)
         areas.append((x0, OPT_DIFF_Y, x0 + 59, OPT_DIFF_Y + OPT_BTN_H - 1, i, 1))
-    # the battlefield: the two maps in frames, their names below
+    # the battlefield: one map at a time in a frame, its name below (the
+    # game draws both), arrows on either side to pick another
     metal_panel(img, 16, 54, 303, 168, "BATTLEFIELD")
-    for i, m in enumerate(MAPS):
-        x0, y0 = OPT_PREV_X[i], OPT_PREV_Y
-        frame(img, x0 - 3, y0 - 3, x0 + 98, y0 + 74, INK)
-        bevel(img, x0 - 2, y0 - 2, x0 + 97, y0 + 73, STEEL, STEEL_D)
-        frame(img, x0 - 1, y0 - 1, x0 + 96, y0 + 72, INK)
-        rect(img, x0, y0, x0 + 95, y0 + 71, CLEAR)
-        hud_corners(img, x0 - 6, y0 - 6, x0 + 101, y0 + 77, ORE, 5)
-        areas.append((x0, y0, x0 + 95, y0 + 71, 16 + i, 0))
-        opt_button(img, x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, m['name'])
-        areas.append((x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, 16 + i, 1))
+    x0, y0 = OPT_PREV_X, OPT_PREV_Y
+    frame(img, x0 - 3, y0 - 3, x0 + 98, y0 + 74, INK)
+    bevel(img, x0 - 2, y0 - 2, x0 + 97, y0 + 73, STEEL, STEEL_D)
+    frame(img, x0 - 1, y0 - 1, x0 + 96, y0 + 72, INK)
+    rect(img, x0, y0, x0 + 95, y0 + 71, CLEAR)
+    hud_corners(img, x0 - 6, y0 - 6, x0 + 101, y0 + 77, ORE, 5)
+    areas.append((x0, y0, x0 + 95, y0 + 71, 17, 0))          # (next)
+    opt_button(img, x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, "")
+    areas.append((x0, OPT_NAME_Y, x0 + 95, OPT_NAME_Y + OPT_BTN_H - 1, 17, 0))
+    ay0, ay1 = OPT_ARROW_Y
+    for k, (ax0, ax1) in enumerate(OPT_ARROWS):
+        opt_button(img, ax0, ay0, ax1, ay1, "")
+        cx, cy = (ax0 + ax1) // 2, (ay0 + ay1) // 2
+        for d in range(6):                      # a triangle pointing out
+            x = cx - 3 + d if k == 0 else cx + 3 - d
+            rect(img, x, cy - d, x, cy + d, GRASS_L)
+        areas.append((ax0, ay0, ax1, ay1, 16 + k, 0))
+    text(img, (SCREEN_W - text_width("%d MAPS" % len(MAPS))) // 2, 59,
+         "%d MAPS" % len(MAPS), STEEL, shadow=None)
     # the bottom: music on or off, START, the copyright
     by0 = 176
     text(img, 20, by0 + 4, "MUSIC", ORE, shadow=None)
@@ -2301,7 +2423,7 @@ def opt_markers():
         dots = []
         for name, c, r in BUILDINGS:                # (its 3x3 pad: the middle)
             if name == 'hq_p':
-                x = OPT_PREV_X[i] + (c + 1) * 3 & ~1
+                x = OPT_PREV_X + (c + 1) * 3 & ~1
                 y = OPT_PREV_Y + (r + 1) * 3
                 dots.append((y * 160 + x // 2, GOLD * 17, x, y, GOLD))
         assert len(dots) == 1
@@ -2310,20 +2432,48 @@ def opt_markers():
     return out
 
 
+def map_name_image(name):
+    """The chosen map's name as the game draws it below the preview: a lit
+    button."""
+    img = blank(98, OPT_BTN_H)                  # (press_rect reaches a pixel
+    opt_button(img, 0, 0, 95, OPT_BTN_H - 1, name)   # past the right edge)
+    press_rect(img, 0, 0, 95, OPT_BTN_H - 1)
+    return [row[:96] for row in img]
+
+
+
 def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0):
     """The options screen as the game shows it (no cursor)."""
     out = copy(img)
-    for i, radar in enumerate(maps_radar):
-        for y in range(RADAR_H * 2):
-            for x in range(RADAR_W * 2):
-                out[OPT_PREV_Y + y][OPT_PREV_X[i] + x] = radar[y // 2][x // 2]
-        for off, cb, x, y, col in markers[i]:
-            rect(out, x, y, x + 3, y + 3, col)
+    radar = maps_radar[mapno]
+    for y in range(RADAR_H * 2):
+        for x in range(RADAR_W * 2):
+            out[OPT_PREV_Y + y][OPT_PREV_X + x] = radar[y // 2][x // 2]
+    for off, cb, x, y, col in markers[mapno]:
+        rect(out, x, y, x + 3, y + 3, col)
+    paste_all(out, map_name_image(MAPS[mapno]['name']), OPT_PREV_X, OPT_NAME_Y)
     _, areas = options_screen()
     for x0, y0, x1, y1, act, press in areas:
-        if press and act in (diff, 16 + mapno, 48 + musicoff):
+        if press and act in (diff, 48 + musicoff):
             press_rect(out, x0, y0, x1, y1)
     return out
+
+
+# the pause panel: as big as the end-of-game banner, in the same place;
+# its buttons (panel-relative x0, x1; y0, y1)
+PAUSE_BTNS = ((12, 79, "RESUME"), (94, 163, "QUIT MISSION"))
+PAUSE_BTN_Y = (17, 28)
+
+
+def pause_panel():
+    b = blank(BANNER_W, BANNER_H, STEEL_D)
+    frame(b, 0, 0, BANNER_W - 1, BANNER_H - 1, INK)
+    bevel(b, 1, 1, BANNER_W - 2, BANNER_H - 2, STEEL, INK)
+    text2x(b, (BANNER_W - (6 * 8 - 2)) // 2, 4, "PAUSED", GOLD)
+    for x0, x1, txt in PAUSE_BTNS:
+        opt_button(b, x0, PAUSE_BTN_Y[0], x1, PAUSE_BTN_Y[1], txt)
+    return b
+
 
 # --------------------------------------------------------------- labels
 # A name tag shows when the mouse rests on a unit, a building or a build
@@ -2664,8 +2814,11 @@ def main(outdir):
     for name, img in tags:
         tagtab += struct.pack('<2H', len(tagdata), len(img[0]) // 2)
         tagdata += pack(img)
-    radoff = len(tagdata)                       # (then the radar offline)
-    tagdata += pack(radar_offline())
+    radoff = len(tagdata)                       # (then the radar offline,
+    tagdata += pack(radar_offline())            #   and the maps' names)
+    mapnames = len(tagdata)
+    for m in MAPS:
+        tagdata += pack(map_name_image(m['name']))
     put_rle('labels.rle', bytes(tagdata))
     put('labtab.bin', bytes(tagtab))
     tagno = {name: i for i, (name, _) in enumerate(tags)}
@@ -2726,6 +2879,12 @@ def main(outdir):
         layer = blank(SCREEN_W, SCREEN_H)
         paste_all(layer, banner(title, color), BANNER_X, BANNER_Y)
         put_rle(name, pack(layer))
+    # the pause panel: a layer like those, only its first rows (the game
+    # unpacks it into the win banner's bank at +$8000)
+    layer = blank(SCREEN_W, BANNER_Y + BANNER_H)
+    paste_all(layer, pause_panel(), BANNER_X, BANNER_Y)
+    assert 0xA000 + len(layer) * 160 <= 0x10000
+    put_rle('pause.rle', pack(layer))
 
     ring = bytearray()
     for dx, dy in ring_offsets():
@@ -2787,6 +2946,14 @@ def main(outdir):
                         'radar_p', 'pp_e', 'harv_p')},
            'BARSEGS': BARSEGS, 'ICONWB': ICONWB,
            'RADOFFADDR': labeladdr + radoff,
+           'MAPNAMES': labeladdr + mapnames, 'MAPNAMEW': 48, 'MAPNAMEH': OPT_BTN_H,
+           'MAPNAMESZ': 48 * OPT_BTN_H,
+           'NAMEOFF': OPT_NAME_Y * 160 + OPT_PREV_X // 2,
+           'PAUSEROWS': BANNER_Y + BANNER_H,
+           **{k: v for i, (x0, x1, _) in enumerate(PAUSE_BTNS)
+              for k, v in ((('PRESX0', 'PQUITX0')[i], BANNER_X + x0),
+                           (('PRESX1', 'PQUITX1')[i], BANNER_X + x1))},
+           'PBTNY0': BANNER_Y + PAUSE_BTN_Y[0], 'PBTNY1': BANNER_Y + PAUSE_BTN_Y[1],
            'NGLYPHS': len(GLYPHS), 'NTILES': len(tiles), 'SCOOP': SCOOP,
            'MAPW': MAP_COLS, 'MAPH': MAP_ROWS,
            'RADX': SIDE_X + RADAR_X, 'RADY': TOP_H + RADAR_Y,
@@ -2803,8 +2970,7 @@ def main(outdir):
            'MB_SIZE': sum(n for _, n in MAP_BLOCK),
            'LABELADDR': labeladdr, 'NLABELS': len(tags), 'LABELH': LABEL_H,
            'LBL_ICON0': tagno['icon0'],
-           'PREV0OFF': OPT_PREV_Y * 160 + OPT_PREV_X[0] // 2,
-           'PREV1OFF': OPT_PREV_Y * 160 + OPT_PREV_X[1] // 2,
+           'PREVOFF': OPT_PREV_Y * 160 + OPT_PREV_X // 2,
            'PREVW': RADAR_W, 'PREVH': RADAR_H * 2,
            'NAIORDER': len(AI_BUILDS), 'NICONS': len(ICON_UNITS),
            **{'SPR_' + u.upper(): SPRITE_ORDER.index(u) for u in UNIT_TYPES},
@@ -2846,7 +3012,8 @@ def main(outdir):
     prompt, pinfo = title_prompt(outdir)
     data, offsets = bytearray(), {}
     for name, key in (('ui.rle', 'DATA_UI'), ('win.rle', 'DATA_WIN'),
-                      ('lose.rle', 'DATA_LOSE'), ('sprites.rle', 'DATA_SPR'),
+                      ('lose.rle', 'DATA_LOSE'), ('pause.rle', 'DATA_PAUSE'),
+                      ('sprites.rle', 'DATA_SPR'),
                       ('options.rle', 'DATA_OPTS'), ('labels.rle', 'DATA_LABELS'),
                       *(('map%d.rle' % i, 'DATA_MAP%d' % i) for i in range(len(MAPS)))):
         offsets[key] = len(data)
@@ -2857,6 +3024,9 @@ def main(outdir):
     assert len(data) <= 0x10000                 # (a bank of its own, see main.s)
     assert (len(SPRITE_ORDER) + len(tiles)) * 128 <= 0x8000   # (the sprite bank)
     put('conquer.data', bytes(data))
+    put('maptab.bin', b''.join(struct.pack('<H', offsets['DATA_MAP%d' % i])
+                               for i in range(len(MAPS))))
+
     with open(os.path.join(outdir, 'gfxequ.s'), 'a') as f:
         for k, v in offsets.items():
             f.write('%-10s equ   %d\n' % (k, v))

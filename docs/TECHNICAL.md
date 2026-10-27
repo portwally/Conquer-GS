@@ -217,7 +217,8 @@ How hard that is (`tools/aitest.lua`): on Green Valley a player who does
 nothing loses after about 6 2/3 minutes on EASY, 2 3/4 on NORMAL and
 3 1/2 on HARD (its waves stop to shoot at our war factory on the way, and
 our starting units fight back meanwhile); on River Crossing after about
-3 1/2 minutes on NORMAL and 2 3/4 on HARD. Two turrets by the
+3 1/2 minutes on NORMAL and 2 3/4 on HARD; on Twin Lakes 2 3/4 and 2 1/4;
+on Stone Pass 2 3/4 and 2. Two turrets by the
 command center and a few tanks hold the base through the 8 minutes
 `tools/defendtest.lua` plays, on NORMAL and on HARD without a scratch on
 the command center.
@@ -225,10 +226,22 @@ the command center.
 You win when every enemy unit and building is gone, and lose when your
 command center falls.
 
+## Pausing
+
+P pauses: the main loop then only moves the arrow and redraws, so the
+game's frame count, the units, production and the enemy all stand still,
+and the music stops (it starts again from the top on RESUME). The pause
+panel is drawn like the end-of-game banners, over the middle of the view;
+its picture is unpacked into the win banner's bank at +$8000. RESUME (or P,
+Esc, RETURN) goes on; QUIT MISSION (or Q) goes back to the mission setup
+the way the end of a game does. Esc unselects the units and stops placing a
+structure (it stays ready), selling or repairing.
+
 ## Maps
 
 Each map is painted from a few shapes in `tools/makegfx.py`
-(`green_valley`, `river_crossing`; the border is impassable) and described
+(`green_valley`, `river_crossing`, `twin_lakes`, `stone_pass`; the border
+is impassable) and described
 in `MAPS`: its starting buildings (our command center and war factory; the
 enemy's barracks, war factory, refinery and power plant) and units, where
 harvesters unload, where new units appear when no building makes them and
@@ -241,6 +254,14 @@ the first view.
   north-west; a river runs from north to south through the middle and can
   only be crossed at a ford in the north and one in the south. Ore by each
   base, by each ford and far in two corners.
+- Twin Lakes: our base in the north-west, the enemy's in the south-east;
+  two lakes in the middle with a land bridge between them, so there are
+  three ways across. Ore by each base, on either side of the bridge and in
+  two corners.
+- Stone Pass: our base in the west, the enemy's in the east; a ridge of
+  rock and forest runs from north to south and can only be crossed at a
+  pass in the north and one in the south. Ore by each base, at each pass
+  and in two corners.
 
 Each map goes into CONQUER.DATA as one packed block (`MAP_BLOCK`): those
 positions, the tiles, which tiles are blocked, the ore in each, the radar
@@ -248,7 +269,8 @@ picture, a preview picture (the radar's without the enemy's base pad), the
 starting buildings' pieces and the starting units. When a game starts the
 chosen map's block is unpacked into `mapblk` in the program and its radar
 picture into the sidebar layer, so the code works on whichever map it is.
-The tiles of both maps share one tile set.
+The tiles of all the maps share one tile set. A table made with
+CONQUER.DATA (`maptab.bin`) gives each map's block.
 
 ## The options screen
 
@@ -257,8 +279,12 @@ screen is drawn by `tools/makegfx.py` (logo, panels, buttons) and packed
 into CONQUER.DATA. The game unpacks it into bank $01 (free before a game),
 copies it to the screen and draws each button from that clean copy, lit
 (its colors through the `optbtn` table: green) when it is the chosen one.
-The map previews are drawn from the maps' preview pictures at twice their
-size, with a gold dot on our base. The arrow is drawn straight onto the
+One map shows at a time, picked with the arrows (or a click on it for the
+next): its preview picture at twice its size, a gold dot on our base, and
+its name below (pictures of the names wait in the sprite bank after the
+name tags). A click still held from the title or the last game doesn't
+count: the button must go up first. The arrow is drawn straight onto the
+
 screen, what it covers saved and put back as it moves. The choices are kept
 in the words at $BE06-$BE0A for the next game.
 

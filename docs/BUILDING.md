@@ -173,11 +173,18 @@ Most print their findings and end with `problems: 0` when all is well.
   follow.
 - `tools/optionstest.lua` (120 s): the options screen must match
   `build/gfx/options_expected.bin` (but under the arrow); clicking HARD and
-  the second map's preview must light those buttons as in
-  `options_expected2.bin`; music OFF must stop the title tune and light its
-  button (`options_expected3.bin`); START must begin a game on that map at
-  HARD, without music; after the game ends a click must bring the options
-  back with the same choices, and RETURN must start the next game.
+  the map (the next one) must show as in `options_expected2.bin`; the
+  arrows must go back and forth through the maps, round from the first to
+  the last; music OFF must stop the title tune and light its button
+  (`options_expected3.bin`); START must begin a game on that map at HARD,
+  without music; after the game ends a click must bring the options back
+  with the same choices, and RETURN must start the next game.
+- `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Esc must
+  unselect, end selling and stop placing a structure; P must stop the game
+  (its frame count, a moving tank, the music) under the pause panel, byte
+  for byte; RESUME must go on; QUIT MISSION must bring back the mission
+  setup, and a new game must start from there.
+
 - `tools/labeltest.lua` (60 s): rests the mouse on one of our tanks, the
   command center, a build icon and an enemy tank; each time the right name
   tag must be on the screen byte for byte, and gone over open ground.

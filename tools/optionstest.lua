@@ -1,10 +1,11 @@
 -- Options screen test (counts raw video frames; skips the title): the
 -- options screen must look exactly like build/gfx/options_expected.bin
--- (but under the arrow), the title tune playing; clicking HARD and the
--- second map's preview must press those buttons as in
--- options_expected2.bin; clicking music OFF must stop the tune and press
--- that button (options_expected3.bin); START must begin a game on that map
--- at that difficulty, without music. Then the game is ended: a click must
+-- (but under the arrow), the title tune playing; clicking HARD and the map
+-- (the next one) must show as in options_expected2.bin; the arrows must go
+-- back and forth through the maps, round from the first to the last; then
+-- with the second map again, clicking music OFF must stop the tune and
+-- press that button (options_expected3.bin); START must begin a game on
+-- that map at that difficulty, without music. Then the game is ended: a click must
 -- bring the options back with the same choices, and RETURN must start the
 -- next game.
 local V = dofile("tools/vars.lua")
@@ -35,12 +36,19 @@ local function dump(name)
   for a = 0xE12000, 0xE19FFF do fh:write(string.char(mem:read_u8(a))) end
   fh:close()
 end
-local function area(act, press)
+local function area(act, press, nth)          -- (the nth with that action)
+  local n = 0
   for _, a in ipairs(O.areas) do
     if a.act == act and (press == nil or a.press == press) then
-      return (a.x0 + a.x1) // 2, (a.y0 + a.y1) // 2
+      n = n + 1
+      if n == (nth or 1) then return (a.x0 + a.x1) // 2, (a.y0 + a.y1) // 2 end
     end
   end
+end
+local function mapno(tag, want)
+  local m = mem:read_u16(V.MAPNO)
+  print(string.format("%-34s map %d %s", tag, m, m == want and "as expected" or "WRONG (want " .. want .. ")"))
+  if m ~= want then problems = problems + 1 end
 end
 local clicks = {}
 local function click(at, x, y)
@@ -63,9 +71,13 @@ sub = emu.add_machine_frame_notifier(function()
       phase, t0 = "options", f
       print("options screen at frame " .. f)
       click(t0 + 12, area(2))                  -- HARD
-      click(t0 + 30, area(17, 0))              -- the second map's preview
-      click(t0 + 52, area(49))                 -- music OFF
-      click(t0 + 74, area(32))                 -- START
+      click(t0 + 30, area(17, 0))              -- the map: the next one
+      click(t0 + 52, area(16))                 -- the left arrow: back
+      click(t0 + 70, area(16))                 -- and round to the last
+      click(t0 + 92, area(17, 0, 3))           -- the right arrow: round to
+      click(t0 + 110, area(17, 0, 3))          --   the first, the second
+      click(t0 + 130, area(49))                -- music OFF
+      click(t0 + 152, area(32))                -- START
     end
   elseif phase == "options" then
     if f == t0 + 10 then
@@ -75,7 +87,11 @@ sub = emu.add_machine_frame_notifier(function()
       if not on then problems = problems + 1 end
     end
     if f == t0 + 48 then check("HARD and RIVER CROSSING pressed:", want2); dump("o1_chosen") end
-    if f == t0 + 70 then
+    if f == t0 + 66 then mapno("left arrow:", 0) end
+    if f == t0 + 88 then mapno("left arrow again:", 3); dump("o1_last") end
+    if f == t0 + 106 then mapno("right arrow:", 0) end
+    if f == t0 + 126 then mapno("right arrow again:", 1) end
+    if f == t0 + 148 then
       check("music OFF pressed:", want3)
       local off = mem:read_u16(V.MUSICON) == 0 and mem:read_u16(V.MUSICOFF) == 1
       print("  the tune stopped: " .. (off and "yes" or "NO"))
@@ -85,7 +101,7 @@ sub = emu.add_machine_frame_notifier(function()
       local dock, aimax = mem:read_u16(V.DOCK), mem:read_u16(V.AIMAX)
       local ok = dock == 18 * 32 + 25 and aimax == 8 and mem:read_u16(V.DIFF) == 2
       print(string.format("game started %d frames after START: dock tile %d, enemy at most %d units: %s",
-        f - (t0 + 77), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
+        f - (t0 + 155), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
       local quiet = mem:read_u16(V.MUSICON) == 0
       print("  no battle tune (music off): " .. (quiet and "yes" or "NO"))
       if not quiet then problems = problems + 1 end
