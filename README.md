@@ -93,7 +93,7 @@ Then click START or press RETURN. Your choices are kept for the next game.
 |---|---|
 | Select a unit | Click it |
 | Select several units | Drag a box around them |
-| Unselect | Esc (or drag a box over empty ground) |
+| Unselect | Space (or drag a box over empty ground) |
 | Move | With units selected, click open ground (a green cross) |
 | Attack | With units selected, click an enemy (a red cross) |
 | Scroll the view | Arrow keys, or hold the mouse at an edge of the screen |
@@ -102,8 +102,8 @@ Then click START or press RETURN. Your choices are kept for the next game.
 | Place a structure | When it says READY, click the icon again, then a spot where the outline is green |
 | Sell or repair | Click SELL or REPAIR, then one of your structures; click the button again to stop |
 | See what something is | Rest the mouse on it |
-| Cancel placing a structure, selling or repairing | Esc |
-| Pause | P; then RESUME (or P, Esc, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
+| Cancel placing a structure, selling or repairing | Space |
+| Pause | P; then RESUME (or P, Space, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
 | Turn the music off or on | M |
 
 

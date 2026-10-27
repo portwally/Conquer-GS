@@ -1,10 +1,11 @@
--- Esc and pause test. Esc: no unit selected, selling mode off, a ready
+-- Space and pause test. Space: no unit selected, selling mode off, a ready
 -- structure no longer being placed (still ready). P: the game stops (its
 -- frame count, a moving tank, the music) under the pause panel, exactly
 -- as unpacked (but under the arrow); RESUME goes on (the panel gone, the
--- music back); QUIT MISSION goes back to the mission setup, and a new
--- game starts from there. Run with SHOWOPTIONS=1 (the script lets the
--- first setup screen go itself, and waits for the second one).
+-- music back), so does Space; QUIT MISSION goes back to the mission
+-- setup, and a new game starts from there. Run with SHOWOPTIONS=1 (the
+-- script lets the first setup screen go itself, and waits for the second
+-- one).
 local G = dofile("tools/gs.lua")
 local V = G.V
 local mem = G.mem
@@ -50,26 +51,26 @@ optsub = emu.add_machine_frame_notifier(function()
   if not quitting and mem:read_u16(V.OPTWAIT) == 1 then mem:write_u16(V.OPTWAIT, 0) end
 end)
 
--- Esc
+-- Space
 G.at(700, function() if G.w(V.MUSICON) == 0 then key("m") end end)   -- music on
 G.at(705, function() local x, y = G.unitxy(0); G.click(706, x, y) end)
 G.at(720, function()
-  print("-- Esc")
+  print("-- Space")
   check(selected() == 1, "a tank selected")
-  key("\27")
+  key(" ")
 end)
-G.at(735, function() check(selected() == 0, "Esc: none selected") end)
+G.at(735, function() check(selected() == 0, "Space: none selected") end)
 local SELLBTN = {(E.SELLX0 + E.SELLX1) // 2, (E.BTNY0 + E.BTNY1) // 2}
 G.click(740, SELLBTN[1], SELLBTN[2])
-G.at(755, function() check(G.w(V.CMDMODE) == E.MODE_SELL, "selling mode on"); key("\27") end)
-G.at(770, function() check(G.w(V.CMDMODE) == 0, "Esc: selling mode off") end)
+G.at(755, function() check(G.w(V.CMDMODE) == E.MODE_SELL, "selling mode on"); key(" ") end)
+G.at(770, function() check(G.w(V.CMDMODE) == 0, "Space: selling mode off") end)
 G.click(775, I.pp_p[1], I.pp_p[2])                       -- a power plant,
 G.at(790, function() G.sw(V.QSEG, 0, E.BARSEGS) end)     --   ready at once
 G.click(800, I.pp_p[1], I.pp_p[2])                       -- placing it
 G.at(812, function() G.mouse(100, 100) end)
-G.at(820, function() check(G.w(V.PLACING) == 1, "placing a structure"); key("\27") end)
+G.at(820, function() check(G.w(V.PLACING) == 1, "placing a structure"); key(" ") end)
 G.at(835, function()
-  check(G.w(V.PLACING) == 0 and G.w(V.QREADY) ~= 0, "Esc: not placing, still ready")
+  check(G.w(V.PLACING) == 0 and G.w(V.QREADY) ~= 0, "Space: not placing, still ready")
 end)
 
 -- pause
@@ -104,14 +105,22 @@ G.at(990, function()
 end)
 G.at(1010, function()
   check(G.w(V.PAUSED) == 1, "P again: paused")
+  key(" ")
+end)
+G.at(1030, function()
+  check(G.w(V.PAUSED) == 0, "Space: going on")
+  key("p")
+end)
+G.at(1050, function()
+  check(G.w(V.PAUSED) == 1, "P again: paused")
   quitting = true
-  G.click(1011, (E.PQUITX0 + E.PQUITX1) // 2, (E.PBTNY0 + E.PBTNY1) // 2)   -- QUIT
+  G.click(1051, (E.PQUITX0 + E.PQUITX1) // 2, (E.PBTNY0 + E.PBTNY1) // 2)   -- QUIT
 end)
 G.run(1600, function(f)
   if quitting and not back and mem:read_u16(V.OPTWAIT) == 1 then
     back = f
     print("-- QUIT MISSION")
-    check(true, string.format("the mission setup again, %d frames later", f - 1011))
+    check(true, string.format("the mission setup again, %d frames later", f - 1051))
     check(G.w(V.PAUSED) == 0, "not paused any more")
     mem:write_u16(V.OPTWAIT, 0)                            -- START
   end

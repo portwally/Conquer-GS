@@ -246,9 +246,9 @@ game's frame count, the units, production and the enemy all stand still,
 and the music stops (it starts again from the top on RESUME). The pause
 panel is drawn like the end-of-game banners, over the middle of the view;
 its picture is unpacked into the win banner's bank at +$8000. RESUME (or P,
-Esc, RETURN) goes on; QUIT MISSION (or Q) goes back to the mission setup
-the way the end of a game does. Esc unselects the units and stops placing a
-structure (it stays ready), selling or repairing.
+Space, RETURN) goes on; QUIT MISSION (or Q) goes back to the mission setup
+the way the end of a game does. Space unselects the units and stops placing
+a structure (it stays ready), selling or repairing.
 
 ## Maps
 

@@ -4446,9 +4446,9 @@ scroll   stz   tmp              ; tmp, tmp2 = step in x, y
          rep   #$20
          mx    %00
          and   #$007F
-         cmp   #$1B             ; Esc: nothing selected, nothing to place,
-         bne   :pkey            ;   no selling or repairing
-         jmp   escape
+         cmp   #$20             ; Space: nothing selected, nothing to
+         bne   :pkey            ;   place, no selling or repairing
+         jmp   cancel
 :pkey    cmp   #$50             ; P (or p): pause
          beq   :pause
          cmp   #$70
@@ -6229,9 +6229,9 @@ musictick
          plx
 :rts     rts
 
-* escape: the Esc key - no unit selected, no structure being placed (it
+* cancel: the Space bar - no unit selected, no structure being placed (it
 * stays ready), no selling or repairing
-escape   jsr   deselect
+cancel   jsr   deselect
          stz   placing
          stz   boxon
          stz   dragging
@@ -6265,7 +6265,7 @@ unpause  stz   paused
          sta   musicon
 :rts     rts
 
-* pauseinput: while paused - P, Esc or RETURN, or a click on RESUME, goes
+* pauseinput: while paused - P, Space or RETURN, or a click on RESUME, goes
 * on; Q, or a click on QUIT MISSION: carry set (back to the mission setup)
 pauseinput
          sep   #$20
@@ -6278,15 +6278,15 @@ pauseinput
 :key     sta   KBDSTRB
          rep   #$20
          mx    %00
+         and   #$007F
+         cmp   #$20             ; Space
+         beq   :go
+         cmp   #$0D             ; RETURN
+         beq   :go
          and   #$005F           ; (capitals)
          cmp   #$51             ; Q
          beq   :quit
          cmp   #$50             ; P
-         beq   :go
-         and   #$001F           ; Esc ($1B) or RETURN ($0D)
-         cmp   #$1B
-         beq   :go
-         cmp   #$0D
          beq   :go
 :mouse   lda   click
          beq   :stay
