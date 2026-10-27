@@ -272,9 +272,9 @@ mvc      equ   mlast+$6         ;   VERTCNT when musictick last looked
 slamfrom equ   mvc+$2           ; slam: the first line's address, and
 slamrows equ   slamfrom+$2      ;   how many lines
 udock    equ   slamrows+$2      ; per harvester: the dock it heads for
-NDOCKS   equ   8                ; docks: where our harvesters unload -
+DOCKSMAX equ   8                ; docks: where our harvesters unload -
 docks    equ   udock+UTAB       ;   by the command center, then at each
-ndocks   equ   docks+{NDOCKS*2} ;   refinery (see calcpower); how many * 2
+ndocks   equ   docks+{DOCKSMAX*2} ;   refinery (see calcpower); how many * 2
 radaron  equ   ndocks+$2        ; the radar works: a radar center and
 radhave  equ   radaron+$2       ;   enough power (calcpower)
 radoff   equ   radhave+$2       ; drawradar: the radar is shown off
@@ -318,7 +318,7 @@ SPCODE   equ   WORKBANK*$10000+$AE00   ; per sprite, then per tile: entry
 FOGTILES equ   4                ; fogwork: tiles uncovered per frame at
 FOGLATE  equ   72               ;   most, while the frame is not this
                                 ;   late (frameest); at least one every
-FOGWAIT  equ   16               ;   this many frames
+FOGEVERY equ   16               ;   this many frames
 RADLATE  equ   100              ; drawradar: more than one dot a frame
                                 ;   only while not this late
 * The radar's terrain is kept at +$8000 in the sidebar layer's bank; the
@@ -1308,18 +1308,18 @@ updcursor
          and   #$00FF
          bne   :arrow
          lda   #SPR_MOVE
-:cross   sta   cshape
-         lda   cx               ; hotspot (7, 8)
-         sec
-         sbc   #7
-         ldx   #304
+:cross   sta   cshape           ; (the cursor may run off the right and
+         lda   cx               ;   bottom edges: render cuts it off
+         sec                    ;   there, see drawclip)
+         sbc   #7               ; hotspot (7, 8)
+         ldx   #318
          jsr   clamp
          and   #$FFFE
          sta   csx
          lda   cy
          sec
          sbc   #8
-         ldx   #184
+         ldx   #199
          jsr   clamp
          sta   csy
          rts
@@ -1327,13 +1327,9 @@ updcursor
 :arrow   lda   #SPR_ARROW
          sta   cshape
          lda   cx               ; hotspot (0, 0)
-         ldx   #304
-         jsr   clamp
          and   #$FFFE
          sta   csx
          lda   cy
-         ldx   #184
-         jsr   clamp
          sta   csy
          rts
 
@@ -2505,16 +2501,24 @@ render   stz   fullview
          lda   cshape
          cmp   ocshape
          beq   :box
-:cmark   lda   ocsx
+:cmark   lda   ocsx             ; (past the edges: the cells at them)
+         ldx   #304
+         jsr   clamp
          sta   rx
          lda   ocsy
+         ldx   #184
+         jsr   clamp
          sta   ry
          jsr   markrect
          lda   csx
          sta   ocsx
+         ldx   #304
+         jsr   clamp
          sta   rx
          lda   csy
          sta   ocsy
+         ldx   #184
+         jsr   clamp
          sta   ry
          jsr   markrect
          lda   cshape
@@ -2622,18 +2626,27 @@ render   stz   fullview
          jsr   labeltouched
          bcc   :cursor
          jsr   drawlabel
-:cursor  lda   csx              ; cursor always on top
-         sta   rx
+:cursor  lda   csx              ; cursor always on top (cut off at the
+         sta   rx               ;   right and bottom edges)
          lda   csy
          sta   ry
+         lda   csx
+         cmp   #305
+         bcs   :clip
+         lda   csy
+         cmp   #185
+         bcs   :clip
          lda   cshape
          jsr   drawspr
-         jsr   copycells
-         lda   fullview         ; the whole view: fast copies, SLAMROWS
+         bra   :copy
+:clip    lda   cshape
+         jsr   drawclip
+:copy    jsr   copycells
+         lda   fullview         ; the whole view: fast copies, SLAMLINES
          beq   :next            ; lines at a time (the music looks at
          lda   #$2000+{TOPH*LINE}  ; its clock in between)
          sta   slamfrom
-         lda   #SLAMROWS
+         lda   #SLAMLINES
          sta   slamrows
 :slam    jsr   musictick
          jsl   SLAMADDR
@@ -2641,7 +2654,7 @@ render   stz   fullview
          plb
          lda   slamfrom
          clc
-         adc   #SLAMROWS*LINE
+         adc   #SLAMLINES*LINE
          sta   slamfrom
          cmp   #$2000+{200*LINE}
          bcc   :slam
@@ -3210,8 +3223,81 @@ rectaddr lda   ry
          adc   #$2000
          rts
 
+* drawclip: sprite A at rx (even), ry into the work buffer, cut off at
+* the screen's right and bottom edges (the cursor near them; a compiled
+* sprite can't be cut off). Color 0 is see-through.
+drawclip asl                    ; its pixels: sprite * 128 in SPRBANK
+         asl
+         asl
+         asl
+         asl
+         asl
+         asl
+         sta   lsrc
+         lda   #SPRBANK
+         sta   lsrc+2
+         lda   #WORKBANK
+         sta   dst+2
+         lda   rx
+         lsr
+         sta   tmp3             ; its first byte on a line,
+         lda   #160
+         sec
+         sbc   tmp3
+         cmp   #8
+         bcc   :w
+         lda   #8
+:w       sta   tmp2             ;   bytes of it on the screen
+         lda   ry
+         sta   tx               ; the line
+         lda   #16
+         sta   ty
+:row     lda   tx
+         cmp   #200
+         bcs   :done
+         asl
+         tax
+         lda   ytab,x
+         clc
+         adc   #$2000
+         adc   tmp3
+         sta   dst
+         ldy   #0
+         sep   #$20
+         mx    %10
+:byte    lda   [lsrc],y         ; 2 pixels: see-through where 0
+         beq   :next
+         bit   #$F0
+         bne   :hi
+         sta   tmp              ; (only the right one)
+         lda   [dst],y
+         and   #$F0
+         ora   tmp
+         bra   :put
+:hi      bit   #$0F
+         bne   :put
+         sta   tmp              ; (only the left one)
+         lda   [dst],y
+         and   #$0F
+         ora   tmp
+:put     sta   [dst],y
+:next    iny
+         cpy   tmp2
+         bne   :byte
+         rep   #$20
+         mx    %00
+         lda   lsrc
+         clc
+         adc   #8
+         sta   lsrc
+         inc   tx
+         dec   ty
+         bne   :row
+:done    rts
+
 * drawspr: draw sprite A at rx, ry into the work buffer by calling its
 * compiled code (see compile)
+
 drawspr  pha
          jsr   rectaddr
          tay
@@ -5062,7 +5148,7 @@ initfog  ldx   #MAPW*MAPH*2-2
 * fogwork: (render) uncover tiles waiting in FOGQ, up to FOGTILES, while
 * the frame has time to spare (frameest below FOGLATE; when the whole
 * view is redrawn anyway, cells cost nothing more). At least one tile
-* every FOGWAIT frames.
+* every FOGEVERY frames.
 fogwork  ldx   fqhead
          cpx   fqtail
          bne   :some
@@ -5079,7 +5165,7 @@ fogwork  ldx   fqhead
          cmp   #FOGLATE
          bcc   :go
          lda   fogwait          ; too late - unless we have waited long
-         cmp   #FOGWAIT
+         cmp   #FOGEVERY
          bcc   :rts
 :go      stz   fogwait
          ldx   fqhead
@@ -6614,7 +6700,7 @@ calcpower
 :ref     cmp   #TMPL_REFP
          bne   :pow
          ldy   ndocks
-         cpy   #NDOCKS*2
+         cpy   #DOCKSMAX*2
          bcs   :pow
          jsr   doorof
          sta   docks,y
@@ -8792,7 +8878,7 @@ blit
 * absolute jumps (it runs elsewhere) or the stack.
 
 SLAMADDR equ   CODEBANK*$10000+$F000
-SLAMROWS equ   32               ; lines a slam copies (192 in 6 goes)
+SLAMLINES equ  32               ; lines a slam copies (192 in 6 goes)
 
 slamcode tsc                    ; (D = 0 here)
          sta   savesp

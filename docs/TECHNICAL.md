@@ -90,7 +90,11 @@ routine per sprite that stores its solid words directly and masks only edge
 words (the masks come from the pixels: color 0 is see-through). Tiles are
 compiled the same way without masks; the fog's edge sprites draw black
 where their pixels are set. `tools/makegfx.py` checks that the compiled code
-fits below the screen copier (48K of 60K now).
+fits below the screen copier (48K of 60K now). Compiled code can't cut a
+sprite off at the screen's edge, so the cursor, which may run off the right
+and bottom edges, is drawn there pixel by pixel instead (`drawclip`): the
+arrow's tip can reach the last pixel, where the view scrolls, past the
+sidebar's icons.
 
 Scrolling moves the view one tile at a time: all 192 cells of the view are
 redrawn and the view is copied to the screen in six parts of 32 lines, with

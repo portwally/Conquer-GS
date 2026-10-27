@@ -4,6 +4,12 @@
 -- capitals (uflags -> V.UFLAGS, frame -> V.FRAME, F_DEAD -> V.F_DEAD).
 local E = dofile("build/equates.lua")
 local V = {}
-for k, v in pairs(E) do V[k:upper()] = v end
+for k, v in pairs(E) do
+  local K = k:upper()                   -- (two names that differ only in
+  if V[K] ~= nil and V[K] ~= v then     --   case would collide here)
+    error("build/equates.lua has two names for V." .. K .. ": rename one in the source")
+  end
+  V[K] = v
+end
 V.SEEALL = E.seeallf            -- set to 1: the game reveals everything
 return V
