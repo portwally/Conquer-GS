@@ -7,7 +7,8 @@
 -- factory, and once that is sold, none can be built; with too little
 -- power the radar goes off again. Theirs: infantry comes out of its barracks,
 -- vehicles out of its war factory; without the factory, no more vehicles;
--- without its refinery, no income; without its power plant, half speed.
+-- without its refinery, no income (its harvester has nowhere to unload);
+-- without its power plant, half speed.
 -- Dumps screens to build/mame/n*.bin.
 local G = dofile("tools/gs.lua")
 local V = G.V
@@ -37,6 +38,9 @@ local function find(test)                      -- live units for which test(i)
   local out = {}
   for i = 0, units() - 1 do if alive(i) and test(i) then out[#out + 1] = i end end
   return out
+end
+local function ourharv(i)                      -- (the enemy has one too)
+  return G.w(V.UFLAGS, i) & (V.F_HARV | V.F_PLAYER) == V.F_HARV | V.F_PLAYER
 end
 -- the radar on the screen: the offline picture (from the sprite bank)?
 local function radaroff()
@@ -103,7 +107,7 @@ G.click(980, E.RADX + 40, E.RADY + 6)                     -- now it works
 G.at(1000, function() check(G.w(V.CAMY) < 12, "a click on it moves the view") ; G.look(0, 12) end)
 
 local harvs0
-G.at(1005, function() harvs0 = #find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end) end)
+G.at(1005, function() harvs0 = #find(ourharv) end)
 G.quickbuild(1010, I.ref_p, REF[1], REF[2], 2)
 G.at(1065, function()
   print("-- refinery")
@@ -111,7 +115,7 @@ G.at(1065, function()
   check(one(E.TMPL_REFP) ~= nil, "it stands")
   check(G.w(V.NDOCKS) == 4 and G.w(V.DOCKS) == G.w(V.DOCK) and G.w(V.DOCKS + 2) == dock,
     "two docks: the command center's and below the refinery")
-  local h = find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end)
+  local h = find(ourharv)
   check(#h == harvs0 + 1, "a harvester came with it")
   check(near(G.w(V.UTILE, h[#h]), REF[1], REF[2] + 2, 2), "next to its dock")
   check(G.w(V.PWRUSED) == 130, "power 130/200")
@@ -178,11 +182,11 @@ build(1710, 'tank_p')
 G.at(1730, function() check(G.w(V.QICON + 2) == 0xFFFF, "a click on the tank icon does nothing") end)
 -- a harvester, with no war factory: by the command center
 local harvsb
-G.at(1755, function() harvsb = find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end) end)
+G.at(1755, function() harvsb = find(ourharv) end)
 build(1760, 'harv_p')                                     -- (10 s)
 G.at(2420, function()
   print("-- harvester")
-  local h = find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end)
+  local h = find(ourharv)
   check(#h == #harvsb + 1, "a harvester was built")
   local newest = h[#h]
   local ex = G.w(V.EXITTILE)
@@ -193,7 +197,7 @@ end)
 
 -- the harvesters: one unloads at the refinery
 G.at(1740, function()
-  local h = find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end)
+  local h = find(ourharv)
   for _, i in ipairs(h) do G.sw(V.UCARGO, i, 475) end     -- nearly full: home soon
 end)
 
@@ -235,17 +239,17 @@ G.at(3300, function()
   kill(V.FACTUNIT)
 end)
 -- income: frames in which the enemy's credits went up (what it spends,
--- and our topping up, aside)
+-- and our topping up, aside), from its harvester's loads
 local rises, lastcr, rises0 = 0, nil, nil
+G.at(3400, function() rises0 = rises end)
 G.at(5000, function()
   check(count(VEH, 3400) == 0 and count(INF, 3400) > 0, "without the factory: infantry only")
-  rises0 = rises
 end)
 G.at(5100, function()
   check(rises > rises0, string.format("income with its refinery (%d times)", rises - rises0))
   kill(V.REFUNIT)
-  rises0 = rises
 end)
+G.at(5200, function() rises0 = rises end)            -- (a load being unloaded)
 G.at(5300, function()
   check(rises == rises0, string.format("none without it (%d times)", rises - rises0))
   G.sw(V.AICREDITS, 0, 5000)                               -- (enough to go on)
@@ -276,7 +280,7 @@ G.run(7000, function(f)
     watch()
   end
   if f >= 1750 and not unloaded then                       -- at the refinery?
-    for _, i in ipairs(find(function(i) return G.w(V.UFLAGS, i) & V.F_HARV ~= 0 end)) do
+    for _, i in ipairs(find(ourharv)) do
       if G.w(V.USTATE, i) == V.H_UNLOAD and G.w(V.UTILE, i) == tile(REF[1], REF[2] + 2) then
         unloaded = f
         print("  a harvester unloads at the refinery's dock (frame " .. f .. ")")

@@ -13,14 +13,15 @@ with Ensoniq sound and music.
   factory, refineries, a radar center, gun turrets and guard towers. Place
   structures where you want them; sell or repair them.
 - **Economy:** harvesters mine ore fields and bring the credits home, to
-  the command center or the nearest refinery; power plants keep production
-  at full speed.
+  the command center or the nearest refinery; mined-out ore grows back
+  slowly. Power plants keep production at full speed.
 - **Five kinds of units:** tanks, fast buggies, soldiers, rocket soldiers
   and the harvester, with weapons that are strong or weak against
   infantry, vehicles and buildings.
 - **A computer opponent** with a base of its own that builds an army and
-  attacks in waves, at three difficulties: easy, normal and hard. Destroy
-  its war factory, refinery or power plant to slow it down.
+  attacks in waves, at three difficulties: easy, normal and hard. It
+  mines ore with a harvester of its own; destroy that, or its war factory,
+  refinery or power plant, to slow it down.
 - **Four maps,** Green Valley, River Crossing, Twin Lakes and Stone Pass,
   with fog of war: you have to scout to find the enemy.
 - **A scrolling battlefield** twice the size of the screen, with a radar
@@ -114,6 +115,9 @@ Then click START or press RETURN. Your choices are kept for the next game.
   load) and unloads at the nearest dock: the one next to your command
   center, or the one in front of a refinery. Click an ore field to send it
   there, or elsewhere to park it.
+- Each ore tile holds 600 credits. Mined-out ore grows back: about every
+  half minute each tile gets 75 credits more, until it is full again. A
+  harvester that finds no ore waits and looks again every few seconds.
 - A refinery comes with a harvester of its own. Build it near the ore and
   the trips get shorter.
 - Structures and units build in two separate queues, one of each at a time.
@@ -140,7 +144,7 @@ barracks.
 | Buggy | 300 | 5 s | 90 | 2 | machine gun, 5, rapid fire | fast; needs a war factory |
 | Soldier | 100 | 3 s | 40 | 2 | rifle, 6 | needs a barracks |
 | Rocket soldier | 300 | 5 s | 30 | 4 | rockets, 15, slow to reload | needs a barracks |
-| Harvester | 1000 | 10 s | 200 | | | mines ore; comes from the command center |
+| Harvester | 1000 | 10 s | 400 | | | mines ore; comes from the command center |
 
 ### Structures
 
@@ -169,15 +173,19 @@ The enemy has a base like yours: a barracks for its soldiers and rocket
 soldiers, a war factory for its tanks and buggies, a refinery, a power
 plant, a turret and guard towers. It sends its units against your base in
 waves that grow bigger over time; its starting units stay home and defend.
-Without its war factory it builds no more vehicles, without its refinery
-it earns nothing, and without its power plant it builds at half speed.
+Its money comes from its harvester, which mines the ore near its base and
+unloads at its refinery. Destroy the harvester and its income stops until
+the refinery has made a new one, which takes 30 seconds (and it builds
+nothing else meanwhile). Without its war factory it builds no more
+vehicles, without its refinery it earns nothing, and without its power
+plant it builds at half speed.
 
 | | Easy | Normal | Hard |
 |---|---|---|---|
 | Its first attack after | 3 minutes | 2 minutes | 90 seconds |
 | Then attacks at least every | 80 seconds | 60 seconds | 45 seconds |
 | Units in an attack | 2 to 4 | 3 to 5 | 3 to 6 |
-| Its income | low | medium | high |
+| Its share of each load its harvester brings in | 16% | 24% | 36% |
 
 ### Tips
 
@@ -189,6 +197,9 @@ it earns nothing, and without its power plant it builds at half speed.
   gun against soldiers.
 - Keep your harvester safe: without it there are no credits. A refinery
   near the ore brings in money faster.
+- Hunt the enemy's harvester: it has 400 hit points, so rockets or a few
+  tanks are best, and every time you destroy one the enemy goes without
+  income for a while.
 - Build a power plant before you run short of power: the radar needs it.
 
 

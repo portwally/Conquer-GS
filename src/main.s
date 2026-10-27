@@ -254,8 +254,8 @@ curbuf   equ   uclass+UTAB      ; options: what the cursor covers (16
 curaddr  equ   curbuf+$80       ;   lines of 8 bytes) and where
 optmap   equ   curaddr+$2       ;   the map whose preview is drawn
 musicon  equ   optmap+$2        ; a tune is playing
-aiincome equ   musicon+$2       ; the enemy at this difficulty: credits
-aigap    equ   aiincome+$2      ;   every 8 frames, frames between
+aishare  equ   musicon+$2       ; the enemy at this difficulty: credits
+aigap    equ   aishare+$2       ;   per SCOOP its harvester unloads, frames between
 aiwave0  equ   aigap+$2         ;   waves, units in the first wave and
 aiwavemax equ  aiwave0+$2       ;   at most
 lbltgt   equ   aiwavemax+$2     ; name tags: what the mouse is on (tag
@@ -286,7 +286,10 @@ ppunit   equ   refunit+$2
 paused   equ   ppunit+$2        ; nonzero: the game is paused (the P key)
 pmusic   equ   paused+$2        ;   and the music was playing
 bnoff    equ   pmusic+$2        ; drawbanner: where its picture is
-VARSEND  equ   bnoff+$2
+oretl    equ   bnoff+$2         ; regrow: the map's ore tiles, how many
+noretl   equ   oretl+{ORELMAX*2} ;   * 2, and the next one to grow
+growpos  equ   noretl+$2
+VARSEND  equ   growpos+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -565,6 +568,20 @@ restart  lda   #0               ; clear our variables
          dex
          dex
          bpl   :pass
+         ldx   #0               ; the ore tiles (for regrow)
+         ldy   #0
+:orel    lda   oredata,x
+         and   #$00FF
+         beq   :orel2
+         txa
+         sta   oretl,y
+         iny
+         iny
+:orel2   inx
+         cpx   #MAPW*MAPH
+         bne   :orel
+         sty   noretl
+         sty   growpos          ; (no sweep under way)
          ldx   #0               ; the starting buildings' pieces
 :over    lda   overdata,x
          cmp   #NONE
@@ -664,6 +681,7 @@ mainloop jsr   musictick        ; (the music keeps time: see musictick)
          jsr   production
          jsr   repairs
          jsr   ai
+         jsr   regrow
          jsr   checkend
          jsr   render
          jsr   sounds           ; start this frame's sounds
@@ -3615,8 +3633,16 @@ harvest  lda   ustate,x
          bne   :h1
          jmp   :home
 :h1      cmp   #H_UNLOAD
-         bne   :rts
+         bne   :h2
          jmp   :unload
+:h2      cmp   #H_WAIT          ; nothing to do: look again in a while
+         bne   :rts
+         lda   ureload,x
+         bne   :rts
+         lda   ucargo,x         ; (full: home, if it has one now)
+         cmp   #CAPACITY
+         bcc   :reseek
+         jmp   :gohome
 :rts     rts
 
 :seek    jsr   findore
@@ -3631,10 +3657,12 @@ harvest  lda   ustate,x
          sta   ustate,x
          rts
 :noore   lda   ucargo,x
-         beq   :idle
+         beq   :wait
          jmp   :gohome
-:idle    lda   #H_IDLE
-         sta   ustate,x
+:wait    lda   #H_WAIT          ; no ore (or no dock): wait, then look
+         sta   ustate,x         ;   again (ore grows back)
+         lda   #HARVWAIT
+         sta   ureload,x
          rts
 
 :goto    lda   unext,x          ; still on the way?
@@ -3678,7 +3706,8 @@ harvest  lda   ustate,x
          bcs   :gohome
          rts
 
-:gohome  jsr   nearestdock      ; to the nearest dock
+:gohome  jsr   nearestdock      ; to the nearest dock (theirs: their
+         bmi   :wait            ;   refinery's, if it stands)
          sta   udock,x
          sta   goal
          stz   avoid
@@ -3697,8 +3726,7 @@ harvest  lda   ustate,x
          bne   :rts2            ;   or the dock blocked?
          lda   #30
          sta   ureload,x
-         lda   udock,x
-         jsr   isdock
+         jsr   dockok
          bcc   :gohome
          jsr   nudge
          ldx   self
@@ -3709,35 +3737,52 @@ harvest  lda   ustate,x
          sta   ustate,x
 :rts2    rts
 
-:unload  lda   ureload,x        ; 25 credits every 4 frames
+:unload  lda   ureload,x        ; a scoop (25 credits) every 4 frames
          bne   :rts2
          lda   #4
          sta   ureload,x
          lda   ucargo,x
-         cmp   #25
+         cmp   #SCOOP
          bcc   :u1
-         lda   #25
+         lda   #SCOOP
 :u1      sta   tmp
          lda   ucargo,x
          sec
          sbc   tmp
          sta   ucargo,x
-         lda   credits
+         lda   uflags,x
+         bit   #F_PLAYER
+         bne   :ours
+         lda   aicredits        ; theirs: its share of a scoop (the
+         clc                    ;   difficulty's)
+         adc   aishare
+         cmp   #60000
+         bcc   :u3
+         lda   #60000
+:u3      sta   aicredits
+         bra   :u4
+:ours    lda   credits
          clc
          adc   tmp
          bcc   :u2
          lda   #$FFFF           ; that's plenty
 :u2      sta   credits
-         lda   ucargo,x
+:u4      lda   ucargo,x
          bne   :rts2
          lda   #H_SEEK
          sta   ustate,x
          rts
 
 * nearestdock: X = harvester -> A = the dock nearest to it (column plus
-* row distance; keeps X)
+* row distance; keeps X). The enemy's: its refinery's door, or NONE (N
+* set) if it is gone.
 nearestdock
-         lda   utile,x
+         lda   uflags,x
+         lsr                    ; (F_PLAYER)
+         bcs   :ours
+         lda   #TMPL_REFE
+         jmp   findbld
+:ours    lda   utile,x
          and   #MAPW-1
          sta   col
          lda   utile,x
@@ -3779,7 +3824,21 @@ nearestdock
          lda   tmp2
          rts
 
-* nudge: X = harvester. A unit parked on its dock moves aside.
+* dockok: X = harvester -> carry set if its dock is still one (keeps X)
+dockok   lda   uflags,x
+         lsr                    ; (F_PLAYER)
+         lda   udock,x
+         bcc   :theirs
+         jmp   isdock
+:theirs  lda   #TMPL_REFE       ; their refinery still there?
+         jsr   findbld
+         cmp   udock,x
+         beq   :yes
+         clc
+:yes     rts
+
+* nudge: X = harvester. A unit of its own side parked on its dock moves
+* aside.
 nudge    lda   udock,x
          sta   clicked
          asl
@@ -3791,6 +3850,10 @@ nudge    lda   udock,x
          cmp   self
          beq   :rts
          tay
+         lda   uflags,y         ; (not one of theirs)
+         eor   uflags,x
+         and   #F_PLAYER
+         bne   :rts
          lda   unext,y          ; only if it is standing still
          bpl   :rts
          lda   ugoal,y
@@ -3826,6 +3889,8 @@ budge    lda   uflags,y
          beq   :idle
          lda   ustate,y
          cmp   #H_IDLE
+         beq   :idle
+         cmp   #H_WAIT
          bne   :no
 :idle    lda   unext,y          ; standing still, going nowhere,
          and   ugoal,y
@@ -7079,8 +7144,10 @@ clearclaimed
 
 *-------------------------------------------------------------------
 * enemy AI (its numbers depend on the difficulty: initai, difftab):
-* a trickle of income (aiincome credits every 8 frames) while its
-* refinery stands, a build order - infantry at its barracks, vehicles at
+* its money comes from its harvester (aishare credits for each scoop it
+* unloads at its refinery: see harvest); without one its refinery makes
+* a new one (free, in AIHARVT frames, nothing else meanwhile); a build
+* order - infantry at its barracks, vehicles at
 * its war factory, at half speed without its power plant - while it has
 * fewer than aimax of its units out, and attack waves of the units it
 * built: the first after a while
@@ -7103,7 +7170,7 @@ initai   lda   DIFF             ; its numbers at this difficulty (see
          lda   difftab,x
          sta   aicredits
          lda   difftab+2,x
-         sta   aiincome
+         sta   aishare
          lda   difftab+4,x      ; the first wave waits a while
          sta   aiwait
          lda   difftab+6,x
@@ -7146,25 +7213,19 @@ initai   lda   DIFF             ; its numbers at this difficulty (see
          bra   :loop
 :done    rts
 
-ai       lda   frame            ; AIINCOME credits every 8 frames, while
-         and   #7               ;   its refinery stands
-         bne   :prod
-         ldx   refunit
-         lda   #TMPL_REFE
-         jsr   standing
-         bcc   :prod
-         lda   aicredits
-         cmp   #60000
-         bcs   :prod
-         clc
-         adc   aiincome
-         sta   aicredits
-:prod    lda   aiwait           ; (count down to the next wave)
+ai       lda   aiwait           ; (count down to the next wave)
          beq   :bar
          dec   aiwait
 :bar     lda   aibuild
          bpl   :busy
-         ldy   aiidx            ; next in the build order: if the
+         jsr   aiharv           ; no harvester? its refinery makes one
+         bcc   :order
+         lda   #TMPL_HARVE
+         sta   aibuild
+         lda   #AIHARVT
+         sta   aitimer
+         jmp   :wave
+:order   ldy   aiidx            ; next in the build order: if the
          ldx   aiorder,y        ;   building it needs stands (else on to
          lda   templates+28,x   ;   the next) and it can afford it
          jsr   findbld
@@ -7172,8 +7233,9 @@ ai       lda   frame            ; AIINCOME credits every 8 frames, while
          jmp   :nextidx
 :can     lda   aicredits
          cmp   templates+14,x
-         bcc   :wave
-         jsr   aicount          ; and it has fewer than aimax out
+         bcs   :afford
+         jmp   :wave
+:afford  jsr   aicount          ; and it has fewer than aimax out
          cmp   aimax
          bcs   :wave
          ldy   aiidx
@@ -7206,7 +7268,10 @@ ai       lda   frame            ; AIINCOME credits every 8 frames, while
          bmi   :built
          sta   spawnat
          lda   #F_DIRTY+F_AI
-         sta   spawnfl
+         cpx   #TMPL_HARVE      ; (its harvester: not one for the waves)
+         bne   :fl
+         lda   #F_DIRTY
+:fl      sta   spawnfl
          jsr   spawnunit
          bcs   :built
          lda   #30              ; no room: try again in a bit
@@ -7215,8 +7280,13 @@ ai       lda   frame            ; AIINCOME credits every 8 frames, while
          sta   aistuck
          bra   :wave
 :built   stz   aistuck
+         lda   aibuild
+         pha
          lda   #NONE
          sta   aibuild
+         pla
+         cmp   #TMPL_HARVE      ; (its harvester: the build order goes on
+         beq   :wave            ;   where it was)
 :nextidx lda   aiidx
          inc
          inc
@@ -7276,6 +7346,63 @@ ai       lda   frame            ; AIINCOME credits every 8 frames, while
          cmp   aiwavemax
          bcs   :rts
          inc   wavesize
+:rts     rts
+
+* aiharv: carry set if the enemy has no harvester but its refinery
+* stands
+aiharv   ldx   #0
+:loop    cpx   nunits
+         bcs   :none
+         lda   uflags,x
+         and   #F_HARV+F_PLAYER+F_DEAD
+         cmp   #F_HARV
+         beq   :has
+         inx
+         inx
+         bra   :loop
+:none    ldx   refunit
+         lda   #TMPL_REFE
+         jmp   standing
+:has     clc
+         rts
+
+* regrow: ore grows back. Every GROWMASK+1 frames a sweep starts: each
+* ore tile below full (and not built on) gets GROWSCOOPS more, one tile
+* a frame; a tile that was mined out shows its crystals again.
+regrow   lda   frame
+         and   #GROWMASK
+         bne   :step
+         stz   growpos
+:step    ldy   growpos
+         cpy   noretl
+         bcs   :rts
+         iny
+         iny
+         sty   growpos
+         lda   oretl-2,y
+         tay
+         lda   passw,y          ; built on
+         and   #$00FF
+         bne   :rts
+         lda   oreamt,y
+         and   #$00FF
+         cmp   #ORESCOOPS
+         bcs   :rts             ; full
+         sta   tmp
+         clc
+         adc   #GROWSCOOPS
+         cmp   #ORESCOOPS
+         bcc   :put
+         lda   #ORESCOOPS
+:put     sep   #$20
+         mx    %10
+         sta   oreamt,y
+         rep   #$20
+         mx    %00
+         lda   tmp
+         bne   :rts             ; (it had some: looks the same)
+         tya
+         jmp   marktile
 :rts     rts
 
 * aicount: A = how many units the enemy built that are alive (keeps X)

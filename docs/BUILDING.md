@@ -130,6 +130,12 @@ Most print their findings and end with `problems: 0` when all is well.
 - `tools/wintest.lua` (400 s): removes the enemy's units and its other
   buildings and destroys the barracks with one tank, then prints how long a
   new game takes to start after the click (about 2.5 seconds).
+- `tools/harvtest.lua` (200 s): harvesters have 400 hit points; the
+  enemy's harvester unloads at its refinery's door and the enemy gets its
+  share a scoop; killed, a new one comes by the refinery's door in 30
+  seconds (none while the refinery is gone), and it never joins a wave;
+  our harvester waits with no ore left and goes back to work once ore has
+  grown back.
 - `tools/bldtest.lua` (200 s): the new buildings (built at once by the
   script, `G.quickbuild`): we start with a command center only, the war
   factory needs a barracks; the radar is off (and says so) until a radar

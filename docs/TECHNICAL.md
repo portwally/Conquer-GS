@@ -153,12 +153,24 @@ tanks and buggies a war factory, for both sides, and a war factory a
 barracks (the template's "needs" works for structures too); without one,
 its icons are greyed out. Harvesters need nothing and come out by the
 command center (the map's exit tile, where units also appear whose
-building is gone meanwhile). Our harvesters unload at a dock: the one next to the command center
-or one in front of a refinery (its door). `calcpower` keeps the list of
-docks along with the power; a harvester heads for the nearest (column plus
-row distance), and if that refinery is gone on the way, for the next. No
-structure may be placed on a dock, and units parked on one move aside. A
-refinery comes with a harvester.
+building is gone meanwhile). Our harvesters unload at a dock: the one next
+to the command center or one in front of a refinery (its door).
+`calcpower` keeps the list of docks along with the power; a harvester
+heads for the nearest (column plus row distance), and if that refinery is
+gone on the way, for the next. No structure may be placed on a dock, and
+units of the harvester's side parked on one move aside. A refinery comes
+with a harvester. The enemy's harvester works the same way and unloads at
+its refinery's door (`nearestdock`, `dockok`).
+
+A harvester (`harvest`) seeks the nearest ore nobody stands on, mines a
+scoop every 8 frames, goes home with a full load and unloads a scoop
+every 4 frames. With no ore to find, or no dock (the enemy's refinery
+gone), it waits (`H_WAIT`, 4 seconds) and looks again. Each ore
+tile starts with 24 scoops (600 credits); the map draws it mined out
+when it has none left. Ore grows back (`regrow`): every 2048 frames a
+sweep, one tile a frame through the map's list of ore tiles, gives each
+tile below full and not built on 3 scoops more, and redraws one that was
+mined out.
 
 ### Pathfinding
 
@@ -195,8 +207,12 @@ fog).
 ## The enemy
 
 The enemy's base has a barracks, a war factory, a refinery, a power plant,
-a turret and two guard towers. It starts with some credits, earns a steady
-trickle more while its refinery stands and builds soldier, rocket soldier,
+a turret and two guard towers. It starts with some credits and a
+harvester; for each scoop the harvester unloads at its refinery it gets
+its share, and without a harvester (while its refinery stands) the
+refinery makes a new one, free, in 30 seconds, building nothing else
+meanwhile. Its harvester is not one of the units it built: it never joins
+a wave. It builds soldier, rocket soldier,
 tank, soldier, buggy, rocket soldier, over and over - infantry at its
 barracks, vehicles at its war factory, skipping what it has no building
 for, at half speed without its power plant - with at most a few of the
@@ -214,7 +230,7 @@ units as its first. The numbers per difficulty (`DIFFICULTIES` in
 | | EASY | NORMAL | HARD |
 |---|---|---|---|
 | credits at the start | 400 | 700 | 1000 |
-| earns, a second | 7.5 | 15 | 22.5 |
+| credits for each scoop (25) its harvester unloads | 4 | 6 | 9 |
 | first wave after | 3 min | 2 min | 90 s |
 | then waves at least apart | 80 s | 60 s | 45 s |
 | wave size, first to most | 2 to 4 | 3 to 5 | 3 to 6 |
@@ -225,16 +241,16 @@ after about this many minutes.
 
 | | EASY | NORMAL | HARD |
 |---|---:|---:|---:|
-| Green Valley | 4 3/4 | 2 3/4 | 2 |
-| River Crossing (the way over a ford is long) | 6 | 4 1/2 | 3 1/2 |
-| Twin Lakes | 3 3/4 | 2 3/4 | 2 1/4 |
+| Green Valley | 6 1/4 | 2 3/4 | 2 1/4 |
+| River Crossing (the way over a ford is long) | 6 1/4 | 3 1/2 | 3 1/2 |
+| Twin Lakes | 4 | 2 3/4 | 2 1/4 |
 | Stone Pass | 5 | 2 3/4 | 2 1/4 |
 
 At its limit of units the enemy sends what it has, so units held up
 somewhere can't stop it from attacking. Two turrets by the command center,
 then a barracks, a war factory and a few tanks hold the base through the 8
-minutes `tools/defendtest.lua` plays: on NORMAL without a scratch on the
-command center, on HARD with a few.
+minutes `tools/defendtest.lua` plays, on NORMAL and on HARD, without a
+scratch on the command center.
 
 You win when every enemy unit and building is gone, and lose when your
 command center falls.

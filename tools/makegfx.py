@@ -1603,7 +1603,8 @@ def drawn_edges(bits):
 
 
 UNIT_TYPES = ['tank_p', 'tank_e', 'harv_p', 'sold_p', 'sold_e', 'turret_e',
-              'turret_p', 'buggy_p', 'buggy_e', 'rock_p', 'rock_e', 'tower_p', 'tower_e']
+              'turret_p', 'buggy_p', 'buggy_e', 'rock_p', 'rock_e', 'tower_p', 'tower_e',
+              'harv_e']
 # buildings: size in tiles (the rest are 2x2); those drawn in pieces
 BSIZE = {'hq_p': 3, 'bar_e': 3}
 BUILDING_PIECES = ['hq_p', 'bar_e', 'pp_p', 'bar_p', 'fact_p', 'ref_p', 'radar_p',
@@ -1635,7 +1636,8 @@ MAPS = [
                ('sold_p', 5, 21), ('sold_p', 6, 21),
                ('tank_e', 24, 7), ('tank_e', 26, 8),
                ('sold_e', 23, 6), ('sold_e', 24, 6), ('sold_e', 23, 7),
-               ('turret_e', 24, 4), ('tower_e', 22, 6), ('tower_e', 27, 9)],
+               ('turret_e', 24, 4), ('tower_e', 22, 6), ('tower_e', 27, 9),
+               ('harv_e', 22, 5)],
      'dock': (5, 19), 'exit': (5, 20), 'camera': (0, 12),
      'enemy_west': False},
     {'name': 'RIVER CROSSING', 'rows': river_crossing(),
@@ -1645,7 +1647,8 @@ MAPS = [
                ('sold_p', 26, 20), ('sold_p', 25, 20),
                ('tank_e', 7, 7), ('tank_e', 6, 8),
                ('sold_e', 8, 5), ('sold_e', 7, 5), ('sold_e', 8, 4),
-               ('turret_e', 7, 3), ('tower_e', 10, 4), ('tower_e', 8, 9)],
+               ('turret_e', 7, 3), ('tower_e', 10, 4), ('tower_e', 8, 9),
+               ('harv_e', 3, 7)],
      'dock': (25, 18), 'exit': (25, 19), 'camera': (16, 12),
      'enemy_west': True},
     {'name': 'TWIN LAKES', 'rows': twin_lakes(),
@@ -1655,7 +1658,8 @@ MAPS = [
                ('sold_p', 4, 7), ('sold_p', 5, 7),
                ('tank_e', 23, 20), ('tank_e', 24, 21),
                ('sold_e', 22, 19), ('sold_e', 23, 19), ('sold_e', 22, 21),
-               ('turret_e', 25, 19), ('tower_e', 21, 17), ('tower_e', 27, 13)],
+               ('turret_e', 25, 19), ('tower_e', 21, 17), ('tower_e', 27, 13),
+               ('harv_e', 24, 17)],
      'dock': (5, 4), 'exit': (5, 5), 'camera': (0, 0),
      'enemy_west': False},
     {'name': 'STONE PASS', 'rows': stone_pass(),
@@ -1665,7 +1669,8 @@ MAPS = [
                ('sold_p', 4, 14), ('sold_p', 5, 14),
                ('tank_e', 23, 12), ('tank_e', 22, 13),
                ('sold_e', 23, 10), ('sold_e', 21, 12), ('sold_e', 22, 10),
-               ('turret_e', 22, 11), ('tower_e', 20, 6), ('tower_e', 21, 18)],
+               ('turret_e', 22, 11), ('tower_e', 20, 6), ('tower_e', 21, 18),
+               ('harv_e', 25, 16)],
      'dock': (5, 11), 'exit': (5, 12), 'camera': (0, 5),
      'enemy_west': False},
 ]
@@ -1687,7 +1692,7 @@ use_map(0)
 # speed (moves on frames where frame & speed == 0), cost, build seconds
 STATS = {
     'tank': (120, 3, 15, 40, 1, 800, 8),
-    'harv': (200, 0, 0, 0, 3, 1000, 10),
+    'harv': (400, 0, 0, 0, 3, 1000, 10),
     'sold': (40, 2, 6, 30, 3, 100, 3),
     'turret': (150, 4, 20, 50, 0, 0, 0),
     'buggy': (90, 2, 5, 12, 0, 300, 5),
@@ -1737,32 +1742,39 @@ def unit_class(name):
     return ARMOR[kind] | WEAPON.get(kind, GUN) << 2
 
 CREDITS0 = 2500                 # starting money
-ORE_PER_TILE = 300              # credits in each ore tile
+ORE_PER_TILE = 600              # credits in each ore tile
 CAPACITY = 500                  # harvester load
 SCOOP = 25                      # credits per scoop of ore
-# the enemy at each difficulty: starting money, income (credits every 8
-# frames), seconds before its first attack wave and at least between
-# waves, units in the first wave and at most (one more each time), units
-# it built alive at once at most. HARD is how it played before there was
-# a choice.
-DIFFICULTIES = [('EASY', 400, 1, 180, 80, 2, 4, 5),
-                ('NORMAL', 700, 2, 120, 60, 3, 5, 6),
-                ('HARD', 1000, 3, 90, 45, 3, 6, 8)]
+# ore grows back: every GROW_FRAMES frames each ore tile below full gets
+# GROW_SCOOPS more (the game sweeps them, one a frame); at most ORE_TILES
+# ore tiles on a map
+GROW_FRAMES, GROW_SCOOPS, ORE_TILES = 2048, 3, 64
+HARV_WAIT = 240                 # frames a harvester with no work waits
+                                # before it looks again
+AI_HARV_SECS = 30               # the enemy's refinery makes a new
+                                # harvester (free) when it has none
+# the enemy at each difficulty: starting money, its share (credits it
+# gets for each SCOOP its harvester unloads), seconds before its first
+# attack wave and at least between waves, units in the first wave and at
+# most (one more each time), units it built alive at once at most.
+DIFFICULTIES = [('EASY', 400, 4, 180, 80, 2, 4, 5),
+                ('NORMAL', 700, 6, 120, 60, 3, 5, 6),
+                ('HARD', 1000, 9, 90, 45, 3, 6, 8)]
 DIFF0 = 1                       # chosen at first: NORMAL
 AI_BUILDS = ['sold_e', 'rock_e', 'tank_e', 'sold_e', 'buggy_e', 'rock_e']  # repeated
-H_IDLE, H_SEEK, H_GOTO, H_MINE, H_HOME, H_UNLOAD = range(6)
+H_IDLE, H_SEEK, H_GOTO, H_MINE, H_HOME, H_UNLOAD, H_WAIT = range(7)
 
 # sidebar build icons, three across, top to bottom. Structures and units
 # build in two separate queues; soldiers need a barracks, tanks and
 # buggies a war factory (and come out of it), and a war factory needs a
 # barracks; so do the enemy's. Harvesters need nothing: they come from
-# the command center.
+# the command center. The enemy's come out of its refinery.
 ICON_UNITS = ['pp_p', 'bar_p', 'ref_p', 'fact_p', 'radar_p', 'turret_p', 'tower_p',
               'harv_p', 'tank_p', 'buggy_p', 'sold_p', 'rock_p']
 NEEDS = {'fact_p': 'bar_p',
          'sold_p': 'bar_p', 'rock_p': 'bar_p', 'tank_p': 'fact_p',
          'buggy_p': 'fact_p', 'sold_e': 'bar_e', 'rock_e': 'bar_e', 'tank_e': 'fact_e',
-         'buggy_e': 'fact_e'}
+         'buggy_e': 'fact_e', 'harv_e': 'ref_e'}
 BARSEGS = 8                     # a progress bar's segments (2 pixels each)
 ICONWB = 10                     # an icon's width in bytes
 
@@ -1876,7 +1888,7 @@ def templates():
     template of the building it needs (NONE: none). For buildings, sprite
     is the first of their pieces."""
     out = []
-    for name in ICON_UNITS + AI_BUILDS + STARTING:
+    for name in ICON_UNITS + AI_BUILDS + ['harv_e'] + STARTING:
         if name in [n for n, _ in out]:
             continue
         if name in STRUCTS:
@@ -2276,6 +2288,9 @@ def map_checks():
                 todo.append(n)
     for p in doors + [EXIT]:
         assert p in reach, ('shut in', p)
+    # an enemy harvester; not too many ore tiles for the game's list
+    assert any(n == 'harv_e' for n, _, _ in UNITS)
+    assert sum(row.count('o') for row in MAP) <= ORE_TILES
 
 
 # -------------------------------------------------------------- options
@@ -2505,7 +2520,7 @@ NAMES = {'tank': 'TANK', 'harv': 'HARVESTER', 'buggy': 'BUGGY', 'sold': 'SOLDIER
 LABEL_NAMES = ['tank_p', 'tank_e', 'harv_p', 'buggy_p', 'buggy_e', 'sold_p', 'sold_e',
                'rock_p', 'rock_e', 'turret_p', 'turret_e', 'tower_p', 'tower_e',
                'hq_p', 'bar_p', 'bar_e', 'pp_p', 'pp_e', 'fact_p', 'fact_e', 'ref_p',
-               'ref_e', 'radar_p']
+               'ref_e', 'radar_p', 'harv_e']
 
 
 def label_image(parts):
@@ -2822,8 +2837,8 @@ def main(outdir):
         f.write('  },\n}\n')
 
     # the difficulties: the enemy's numbers (frames, not seconds)
-    put('difftab.bin', b''.join(struct.pack('<7H', cr, inc, first * 60, gap * 60, w0, wmax, mx)
-                                for _, cr, inc, first, gap, w0, wmax, mx in DIFFICULTIES))
+    put('difftab.bin', b''.join(struct.pack("<7H", cr, share, first * 60, gap * 60, w0, wmax, mx)
+                                for _, cr, share, first, gap, w0, wmax, mx in DIFFICULTIES))
 
     # the name tags: images one after the other, their offsets and widths
     # (bytes), and the tag of each unit sprite
@@ -2961,7 +2976,7 @@ def main(outdir):
            'SPR_FOG': SPRITE_ORDER.index('fog_n'), 'TMPLSZ': TMPLSZ, 'ICONSZ': ICONSZ,
            **{'TMPL_' + n.upper().replace('_', ''): names.index(n) * TMPLSZ
               for n in ('hq_p', 'bar_p', 'bar_e', 'fact_p', 'fact_e', 'ref_p', 'ref_e',
-                        'radar_p', 'pp_e', 'pp_p', 'harv_p')},
+                        'radar_p', 'pp_e', 'pp_p', 'harv_p', 'harv_e')},
            'BARSEGS': BARSEGS, 'ICONWB': ICONWB,
            'RADOFFADDR': labeladdr + radoff,
            'MAPNAMES': labeladdr + mapnames, 'MAPNAMEW': 48, 'MAPNAMEH': OPT_BTN_H,
@@ -2982,6 +2997,9 @@ def main(outdir):
            'POWBARY': TOP_H + POWBAR_Y,
            'H_IDLE': H_IDLE, 'H_SEEK': H_SEEK, 'H_GOTO': H_GOTO,
            'H_MINE': H_MINE, 'H_HOME': H_HOME, 'H_UNLOAD': H_UNLOAD,
+           'H_WAIT': H_WAIT, 'HARVWAIT': HARV_WAIT, 'AIHARVT': AI_HARV_SECS * 60,
+           'ORESCOOPS': ORE_PER_TILE // SCOOP, 'GROWMASK': GROW_FRAMES - 1,
+           'GROWSCOOPS': GROW_SCOOPS, 'ORELMAX': ORE_TILES,
            'F_BUILDING': F_BUILDING, 'F_AI': F_AI, 'F_AMOVE': F_AMOVE,
            'NDIFF': len(DIFFICULTIES), 'DIFF0': DIFF0, 'NMAPS': len(MAPS),
            **{'MB_' + name: sum(n for _, n in MAP_BLOCK[:k]) for k, (name, _) in enumerate(MAP_BLOCK)},
