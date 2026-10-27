@@ -37,10 +37,11 @@ with Ensoniq sound and music.
 | | |
 |---|---|
 | ![The start of a game](docs/images/start.png) | ![A base](docs/images/base.png) |
-| The start of a game on Green Valley | A base with a radar center, a refinery, a guard tower and a turret |
+| The start of a game on Green Valley: a command center and a war factory | A base with a radar center, a refinery, a guard tower and a turret |
+| ![An attack on the base](docs/images/defense.png) | ![The enemy's base](docs/images/enemy-base.png) |
+| The enemy attacks; the turret and the guard tower fire back | The enemy's base: barracks, war factory, refinery, power plant and guard towers |
 | ![A battle](docs/images/battle.png) | ![River Crossing](docs/images/river-crossing.png) |
-| A fight at the enemy base, its war factory and power plant behind | River Crossing, with a name tag on a tank |
-
+| A fight at the enemy base | River Crossing: a refinery by the ore, with its name tag |
 | ![Build icons](docs/images/build-icons.png) | ![Mission accomplished](docs/images/win.png) |
 | Build icons show their name and price | Mission accomplished |
 
