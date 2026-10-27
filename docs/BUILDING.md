@@ -270,3 +270,24 @@ turns it into a picture). `tools/artshots.lua` (60 s) dumps three screens
 for looking at the art: the start, the enemy base with the fog lifted, and
 our units fighting there (`build/mame/art_base.bin`, `art_enemy.bin`,
 `art_fight.bin`).
+
+## A demo video
+
+`tools/demo.lua` plays a game from the title to a battle the way a person
+would (the arrow glides from one thing to the next): the mission setup, a
+power plant, a barracks and a war factory, an army built side by side,
+the march on the enemy's base with the view following it, the battle.
+Record it with MAME (about four minutes; the raw file is several GB):
+
+```
+./run.sh -video none -sound none -nothrottle -seconds_to_run 400 -aviwrite demo.avi -autoboot_script tools/demo.lua
+```
+
+That writes `build/mame/snap/demo.avi` (704 x 228, the border included;
+the Ensoniq's sound on its second and third channels). The title shows
+about 23 seconds in, after the disk has loaded. To make an MP4 from there,
+the picture cropped and scaled up 4 times with sharp pixels:
+
+```
+ffmpeg -ss 22.9 -i build/mame/snap/demo.avi -vf "crop=640:200:32:14,scale=1280:800:flags=neighbor" -af "pan=stereo|c0=c1|c1=c2,volume=8dB,alimiter=limit=0.95" -c:v libx264 -crf 18 -pix_fmt yuv420p -tune animation -c:a aac -b:a 192k -movflags +faststart build/conquer-gs-demo.mp4
+```
