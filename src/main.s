@@ -69,6 +69,7 @@ WORKBANK equ   $01
 UIBANK   equ   $03              ; unpacked top bar and sidebar
 WINBANK  equ   $04              ; unpacked end-of-game banners
 LOSEBANK equ   $05
+HELPBANK equ   $05              ; CONQUER.HELP, from HELPADDR
 CODEBANK equ   $06              ; compiled sprites
 TILEBANK equ   $09              ; compiled map tiles
 SPRBANK  equ   $07              ; unpacked sprite pixels (from $0000)
@@ -322,7 +323,8 @@ fxdx     equ   stick+$2         ; fxpos: the corner it looks at
 fxdy     equ   fxdx+$2
 fxax     equ   fxdy+$2          ;   and where the thing is
 fxay     equ   fxax+$2
-VARSEND  equ   fxay+$2
+hpage    equ   fxay+$2          ; help: the page shown
+VARSEND  equ   hpage+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -519,6 +521,7 @@ main     sei                    ; no interrupts: we own the machine
          jsr   loadtitle        ;   the text screen: LOADING and a dot
          jsr   loaddata         ;   for every 4K read; the title shows
          jsr   loadsound        ;   once the game is ready, with music)
+         jsr   loadhelp
          lda   SHADOW
          ora   #$3E             ; no shadowing of banks 0/1 into E0/E1,
          sta   SHADOW           ; so bank 1 can be a private buffer (and
@@ -8403,6 +8406,29 @@ loadsound
          sta   soundok
 :rts     rts
 
+* loadhelp: the instruction pages, CONQUER.HELP, into HELPBANK at
+* HELPADDR (above the lose banner's layer). Without it HOW TO PLAY does
+* nothing.
+loadhelp lda   #<helpname
+         sta   lfname
+         lda   #>helpname
+         sta   lfname+1
+         lda   #HELPBANK
+         sta   lfbank
+         lda   #<HELPADDR
+         sta   lfaddr
+         lda   #>HELPADDR
+         sta   lfaddr+1
+         lda   #<HELPSIZE
+         sta   lfsize
+         lda   #>HELPSIZE
+         sta   lfsize+1
+         jsr   loadfile
+         bcs   :rts
+         lda   #1
+         sta   helpok
+:rts     rts
+
 * loadfile: read the file named at lfname into bank lfbank from lfaddr
 * (or into the DOC's sound RAM: lfbank = DOCDEST), 4K at a time through
 * bank 0 (CHUNK). Carry clear if it is exactly
@@ -8593,6 +8619,9 @@ titlename dfb  13
 soundname dfb  13
          asc   'CONQUER.SOUND'
 soundok  dw    0                ; nonzero: the sounds are in the DOC
+helpname dfb   12
+         asc   'CONQUER.HELP'
+helpok   dw    0                ; nonzero: the instruction pages are in
 fullpath ds    32
 vlen     dfb   0
 lfname   dw    0                ; loadfile: the file's name,
@@ -8763,7 +8792,13 @@ options  jsr   optmusic
          bmi   :move
          cmp   #32              ; START
          beq   :go
-         pha
+         cmp   #64              ; HOW TO PLAY: its pages, then this
+         bne   :opt             ;   screen again
+         lda   helpok
+         beq   :move
+         jsr   help
+         jmp   options
+:opt     pha
          jsr   curhide
          pla
          cmp   #48
@@ -8792,7 +8827,7 @@ options  jsr   optmusic
          sta   lcy
          jsr   curhide
          jsr   curshow
-         bra   :loop
+         jmp   :loop
 :go8     rep   #$20
          mx    %00
 :go      stz   OPTWAIT
@@ -8810,6 +8845,77 @@ options  jsr   optmusic
          sta   MUSICOFF
          stz   musicon          ; (the title tune stops)
          jmp   musstop
+
+* help: the instruction pages, one after the other: a click on the
+* bottom row's left half goes back (from the first: to the setup), on
+* its right half on (from the last: to the setup); Esc to the setup
+help     jsr   curhide
+         stz   hpage
+:show    lda   hpage
+         asl
+         tax
+         lda   helptab,x
+         sta   lsrc
+         lda   #HELPBANK
+         sta   lsrc+2
+         ldx   #^SHR
+         ldy   #$2000
+         jsr   unrlex
+         jsr   curshow
+         lda   #1               ; (the click that got here is still held)
+         sta   btn
+:wait    jsr   waitvbl
+         lda   musicon
+         beq   :q
+         jsr   musplay
+:q       jsr   readmouse
+         sep   #$20
+         mx    %10
+         lda   KBD
+         bpl   :nokey
+         sta   KBDSTRB
+         cmp   #$9B             ; Esc
+         bne   :nokey
+         rep   #$20
+         mx    %00
+         bra   :done
+:nokey   rep   #$20
+         mx    %00
+         lda   click
+         beq   :move
+         lda   cy
+         cmp   #HELPBTNY
+         bcc   :move
+         jsr   curhide
+         lda   cx
+         cmp   #160
+         bcs   :fwd
+         lda   hpage            ; back
+         beq   :out
+         dec   hpage
+         bra   :show
+:fwd     lda   hpage            ; on
+         cmp   #NHELP-1
+         bcs   :out
+         inc   hpage
+         bra   :show
+:move    lda   cx               ; the arrow follows the mouse
+         cmp   lcx
+         bne   :moved
+         lda   cy
+         cmp   lcy
+         beq   :wait
+:moved   lda   cx
+         sta   lcx
+         lda   cy
+         sta   lcy
+         jsr   curhide
+         jsr   curshow
+         bra   :wait
+:done    jsr   curhide
+:out     rts
+
+helptab  putbin ../build/gfx/helptab.bin
 
 * pickmap: A = 16: the previous map, 17: the next one (the arrows; a
 * click on the map or its name is the next one too) - and draw it
@@ -9487,7 +9593,7 @@ unpack   lda   #DATAADDR+DATA_UI
 unrle    sta   lsrc
          lda   #DATABANK
          sta   lsrc+2
-         stx   dst+2
+unrlex   stx   dst+2            ; (from lsrc as the caller set it)
          sty   dst
          ldy   #0               ; read offset
          ldx   #0               ; write offset

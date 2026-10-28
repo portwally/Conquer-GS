@@ -58,8 +58,8 @@ and a mouse, or an emulator.
 - **On a real IIgs:** write the disk image to a 3.5" disk, or use it with a
   FloppyEmu, BlueSCSI or similar device, and boot from it. The game also
   finds its files in a folder on a hard disk: copy CONQUER.SYSTEM,
-  CONQUER.DATA, CONQUER.SOUND and CONQUER.TITLE into one folder and start
-  CONQUER.SYSTEM.
+  CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE and CONQUER.HELP into one
+  folder and start CONQUER.SYSTEM.
 - **In MAME** (on a Mac, easiest through [Ample](https://github.com/ksherlock/ample)):
   choose the Apple IIgs (ROM 3 or ROM 01) with 1 MB of memory or more (2 MB
   is the default), put conquer.po in the first 3.5" drive and start it.
@@ -87,6 +87,9 @@ Click (or press a key) on the title. On the mission setup screen choose:
 - **Music:** on or off.
 
 Then click START or press RETURN. Your choices are kept for the next game.
+HOW TO PLAY opens three pages of instructions: the mission, the controls,
+the units and the enemy (NEXT and BACK to leaf through, Esc back to the
+setup).
 
 ### Controls
 

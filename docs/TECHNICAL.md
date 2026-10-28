@@ -22,7 +22,8 @@ banks 0 and 1 and never returns to ProDOS.
 3. CONQUER.DATA (the packed graphics, maps, options screen and name tags)
    loads into bank $08.
 4. CONQUER.SOUND (an image of the sound chip's RAM) streams into the sound
-   chip.
+   chip, and CONQUER.HELP (the packed instruction pages behind HOW TO
+   PLAY) loads into bank $05 at $A000, above the lose banner's layer.
 5. The game unpacks the graphics, compiles the sprites into code, then shows
    the title with CLICK TO START and starts the title tune; after a click,
    the options screen; then the chosen map is unpacked and the game starts.
@@ -43,7 +44,7 @@ The game needs a IIgs with at least 1 MB (banks up to $09).
 | $01 | the work buffer (what the screen will show), the fog table ($A000), its queue ($A600), the sprite code entries ($AE00) |
 | $02 | the background of the top bar and sidebar |
 | $03 | the top bar and sidebar layer, with a copy of the radar's terrain at +$8000 |
-| $04, $05 | the two end-of-game banners |
+| $04, $05 | the two end-of-game banners; at $A000 the pause panel ($04) and the instruction pages ($05) |
 | $06 | the compiled sprites, and the screen copier at $F000 |
 | $07 | the sprite and tile pixels, then the name tags and the radar's "offline" picture |
 | $08 | CONQUER.DATA as loaded (up to 64K) |
@@ -285,6 +286,17 @@ command center falls. The end-of-game panel (taller than the pause
 panel, 6 cell rows) shows what the game counted: our units built and
 lost, enemy units and buildings destroyed, credits from ore and the time
 played (`drawstats` writes them into the panel's layer when it ends).
+
+## Instructions
+
+HOW TO PLAY on the mission setup screen shows three pages (`help_texts()`
+in `tools/makegfx.py`, drawn in the setup screen's style; their numbers
+come from the game's own tables): the mission, the controls, the units
+and the enemy. `help` unpacks each straight onto the screen; a click on
+the bottom row's left half goes back, on its right half on, Esc (or going
+past either end) back to the setup screen, which starts afresh. They are
+in a file of their own, CONQUER.HELP: CONQUER.DATA's bank has no room
+left for them. The copyright sits under CLICK TO START on the title.
 
 ## Pausing
 

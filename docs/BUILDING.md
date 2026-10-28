@@ -46,12 +46,14 @@ tests. To just play, download the disk from the
    $9000; `build.sh` checks), and `tools/equates.py` writes every equate and
    the program's labels to `build/equates.lua` for the test scripts.
 5. Cadius makes `build/conquer.po`, an 800K ProDOS disk with ProDOS 2.4.3,
-   CONQUER.SYSTEM, CONQUER.DATA, CONQUER.SOUND and CONQUER.TITLE (the title
-   picture, from `assets/title.shr`).
+   CONQUER.SYSTEM, CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE (the title
+   picture, from `assets/title.shr`) and CONQUER.HELP (the instruction
+   pages).
 
 The game reads its files from its own folder, or else from the top folder
 of the disk it started from. Without CONQUER.TITLE the options screen comes
-straight away, without CONQUER.SOUND the game is silent; if CONQUER.DATA is
+straight away, without CONQUER.SOUND the game is silent, without
+CONQUER.HELP the HOW TO PLAY button does nothing; if CONQUER.DATA is
 missing or damaged it says so on the text screen and stops.
 
 `run.sh` passes extra arguments to MAME, and turns the Mac's mouse off when
@@ -136,6 +138,9 @@ Most print their findings and end with `problems: 0` when all is well.
   barracks, the war factory and the command center. Three soldiers
   queued, one taken back with an Option-click (the test sets `optheld`),
   two come out; a structure stopped with an Option-click, money back.
+- `tools/helptest.lua` (200 s): HOW TO PLAY from the mission setup, the
+  pages with NEXT and BACK, DONE and Esc back to the setup, then START;
+  dumps the pages (`build/mame/h1_page*.bin`).
 - `tools/movefiretest.lua` (60 s): a tank sent along the road past an enemy
   tank shoots it on the way without stopping, and gets where it was sent.
 - `tools/rallytest.lua` (60 s): rally points for the barracks and the war

@@ -2417,7 +2417,7 @@ def logo(img, y):
 def options_screen():
     """The screen and its click areas: (x0, y0, x1, y1, action, pressable)
     with action 0-2 a difficulty, 16 + i map i, 32 START, 48 music on, 49
-    music off."""
+    music off, 64 HOW TO PLAY."""
     img = blank(SCREEN_W, SCREEN_H, CLEAR)
     for y in range(0, SCREEN_H, 2):             # scanlines
         rect(img, 0, y, SCREEN_W - 1, y, INK)
@@ -2473,11 +2473,115 @@ def options_screen():
     text2x(img, x0 + (x1 - x0 + 1 - (5 * 8 - 2)) // 2, y0 + 6, "START", LIGHT)
     hud_corners(img, x0 - 3, y0 - 3, x1 + 3, y1 + 3, GOLD, 4)
     areas.append((x0, y0, x1, y1, 32, 0))
-    note = "© 2026 WALTER TENGLER"
-    text(img, SCREEN_W - 6 - text_width(note), SCREEN_H - 9, note, STEEL, shadow=None)
+    x0, x1 = HELP_BTN                           # the instructions
+    opt_button(img, x0, by0, x1, by0 + OPT_BTN_H - 1, "HOW TO PLAY")
+    areas.append((x0, by0, x1, by0 + OPT_BTN_H - 1, 64, 0))
     for x0, y0, x1, y1, act, press in areas:
         assert x0 % 2 == 0 and x1 % 2 == 1
     return img, areas
+
+
+HELP_BTN = (218, 299)                   # HOW TO PLAY (x; at the bottom)
+NOTE = "© 2026 WALTER TENGLER"
+
+# the instructions: pages behind HOW TO PLAY, each a screen like the
+# mission setup's. Lines: (gold heading or key, light text) - a key and
+# its text side by side, or a heading alone, or text alone.
+def help_texts():
+    t, b, so, ro, h = (STATS[k] for k in ('tank', 'buggy', 'sold', 'rock', 'harv'))
+    return [
+        ("THE MISSION", [
+            ("GOAL", ""),
+            ("", "DESTROY EVERY ENEMY UNIT AND BUILDING TO WIN."),
+            ("", "IF YOUR COMMAND CENTER FALLS THE MISSION IS LOST."),
+            ("BUILDING UP", ""),
+            ("", "A POWER PLANT - A BARRACKS FOR SOLDIERS - THEN A WAR"),
+            ("", "FACTORY FOR TANKS AND BUGGIES. HARVESTERS COME FROM"),
+            ("", "THE COMMAND CENTER."),
+            ("MONEY", ""),
+            ("", "ORE: %d CREDITS A SCOOP - %d A LOAD. MINED-OUT ORE GROWS" % (SCOOP, CAPACITY)),
+            ("", "BACK. A REFINERY NEAR THE ORE SHORTENS THE TRIPS."),
+            ("POWER", ""),
+            ("", "%d FROM THE COMMAND CENTER - 100 PER POWER PLANT. TOO" % HQ_POWER),
+            ("", "LITTLE: EVERYTHING BUILDS AT HALF SPEED - NO RADAR."),
+            ("", "THE RADAR NEEDS A RADAR CENTER. THE FOG HIDES THE ENEMY."),
+        ]),
+        ("CONTROLS", [
+            ("CLICK", "SELECT A UNIT"),
+            ("DRAG", "SELECT SEVERAL WITH A BOX"),
+            ("CLICK GROUND", "MOVE THERE"),
+            ("CLICK ENEMY", "ATTACK IT"),
+            ("SPACE", "UNSELECT - STOP PLACING"),
+            ("ARROWS", "SCROLL - OR HOLD THE MOUSE AT AN EDGE"),
+            ("RADAR", "CLICK IT TO JUMP THERE"),
+            ("ICON", "BUILD - WHEN READY CLICK AGAIN TO PLACE"),
+            ("ICON AGAIN", "QUEUE UP TO %d UNITS OF A KIND" % QUEUE_MAX),
+            ("OPTION-CLICK", "CANCEL A BUILD - MONEY BACK"),
+            ("BARRACKS", "THEN GROUND: ITS RALLY POINT"),
+            ("SELL / REPAIR", "THEN ONE OF YOUR STRUCTURES"),
+            ("REST THE MOUSE", "SEE WHAT IT IS AND WHAT IT COSTS"),
+            ("M  /  ESC", "MUSIC  /  PAUSE"),
+        ]),
+        ("UNITS AND THE ENEMY", [
+            ("UNIT", "COST  ARMOR  RANGE  GOOD AGAINST"),
+            ("TANK", "%4d   %4d     %d     EVERYTHING" % (t[5], t[0], t[1])),
+            ("BUGGY", "%4d   %4d     %d     SOLDIERS - FAST" % (b[5], b[0], b[1])),
+            ("SOLDIER", "%4d   %4d     %d     CHEAP" % (so[5], so[0], so[1])),
+            ("ROCKET SOLDIER", "%4d   %4d     %d     TANKS AND BUILDINGS" % (ro[5], ro[0], ro[1])),
+            ("HARVESTER", "%4d   %4d     -     MINES ORE" % (h[5], h[0])),
+            ("THE ENEMY", ""),
+            ("", "MINES WITH ITS OWN HARVESTER: DESTROY IT TO STOP ITS"),
+            ("", "MONEY. IT REBUILDS WHAT YOU DESTROY ONCE IT CAN PAY"),
+            ("", "AND ATTACKS IN WAVES THAT GROW BIGGER."),
+            ("TIPS", ""),
+            ("", "TWO TURRETS BY THE COMMAND CENTER HOLD THE EARLY WAVES."),
+            ("", "HUNT ITS HARVESTER. MATCH YOUR WEAPONS TO THE TARGETS."),
+        ]),
+    ]
+
+
+HELP_KEY_X, HELP_TEXT_X = 26, 96
+HELP_ADDR = 0xA000
+HELP_BTN_Y = 180                        # the pages' bottom row (buttons)
+HELP_Y0, HELP_DY = 46, 9
+
+
+def help_pages():
+    """The instruction pages (screens)."""
+    texts = help_texts()
+    out = []
+    for n, (title, lines) in enumerate(texts):
+        img = blank(SCREEN_W, SCREEN_H, CLEAR)
+        for y in range(0, SCREEN_H, 2):         # scanlines
+            rect(img, 0, y, SCREEN_W - 1, y, INK)
+        hud_corners(img, 2, 2, SCREEN_W - 3, SCREEN_H - 3, GRASS, 12)
+        head = "HOW TO PLAY"                    # (no logo: room on the disk)
+        hx = (SCREEN_W - (len(head) * 8 - 2)) // 2
+        text2x(img, hx, 8, head, GOLD)
+        rect(img, hx - 4, 22, hx + len(head) * 8 + 1, 22, RED)
+        metal_panel(img, 16, 31, 303, 172, "%d/%d  %s" % (n + 1, len(texts), title))
+        y = HELP_Y0
+        for key, what in lines:
+            if key and not what:                # a heading
+                text(img, HELP_KEY_X, y, key, GOLD, shadow=None)
+            elif not key:                       # text on its own
+                assert HELP_KEY_X + 8 + text_width(what) < 296, what
+                text(img, HELP_KEY_X + 8, y, what, LIGHT, shadow=None)
+            else:
+                assert HELP_KEY_X + text_width(key) < HELP_TEXT_X - 4, key
+                assert HELP_TEXT_X + text_width(what) < 296, what
+                text(img, HELP_KEY_X, y, key, GOLD, shadow=None)
+                text(img, HELP_TEXT_X, y, what, LIGHT, shadow=None)
+            y += HELP_DY
+        assert y <= 172
+        by0 = HELP_BTN_Y                        # BACK, NEXT or DONE
+        opt_button(img, 16, by0, 89, by0 + OPT_BTN_H - 1, "BACK" if n else "SETUP")
+        last = n == len(texts) - 1
+        opt_button(img, 230, by0, 303, by0 + OPT_BTN_H - 1, "DONE" if last else "NEXT")
+        hint = "ESC: BACK TO THE SETUP"
+        text(img, (SCREEN_W - text_width(hint)) // 2, by0 + 4, hint, STEEL, shadow=None)
+        out.append(img)
+    return out
 
 
 def opt_markers():
@@ -2709,7 +2813,8 @@ PROMPT_UP = 2                   # rows above the bottom palette band
 
 
 def title_prompt(outdir):
-    """The CLICK TO START line drawn on the title picture (assets/title.shr,
+    """The CLICK TO START line (and the copyright under it) drawn on the
+    title picture (assets/title.shr,
     a Super Hi-Res screen image): centered near the bottom, PROMPT_UP rows
     above the bottom palette band's top, in each row's palette's brightest
     color with a dark outline: packed pixels with 0 for see-through, and
@@ -2733,11 +2838,12 @@ def title_prompt(outdir):
         y0 -= 1
     w = text_width(PROMPT) * 2 + 2                  # (and a dark outline
     w += w & 1                                      #  all around, to stand
-    h = 12                                          #  out on any ground)
-    y = y0 - PROMPT_UP
-    assert y + h <= 200
+    h = 12 + 10                                     #  out on any ground;
+    y = y0 - PROMPT_UP - 10                         #  the copyright under it)
+    assert y + h <= 200 and text_width(NOTE) + 2 <= w
     letters = blank(w, h)
     text2x(letters, 1, 1, PROMPT, 1, shadow=None)
+    text(letters, (w - text_width(NOTE)) // 2, 13, NOTE, 1, shadow=None)
     img = blank(w, h)
     for yy in range(h):
         bright, dark = colors(y + yy)
@@ -2852,6 +2958,15 @@ def main(outdir):
     # the options screen
     opts, areas = options_screen()
     put_rle('options.rle', pack(opts))
+    # CONQUER.HELP: the instruction pages, packed, loaded at start into
+    # bank HELPBANK at HELPADDR (above the lose banner's layer)
+    helpdata, helpoffs = bytearray(), []
+    for page in help_pages():
+        helpoffs.append(HELP_ADDR + len(helpdata))
+        helpdata += rle(pack(page))
+    assert HELP_ADDR + len(helpdata) <= 0x10000
+    put('conquer.help', bytes(helpdata))
+    put('helptab.bin', b''.join(struct.pack('<H', a) for a in helpoffs))
     tab = bytearray()
     for x0, y0, x1, y1, act, press in areas:
         tab += struct.pack('<8H', x0, y0, x1, y1, act, y0 * 160 + x0 // 2,
@@ -3120,6 +3235,10 @@ def main(outdir):
     offsets['DATA_PROMPT'] = len(data)
     data += prompt
     offsets.update(pinfo)
+    offsets['NHELP'] = len(help_texts())
+    offsets['HELPADDR'] = HELP_ADDR
+    offsets['HELPBTNY'] = HELP_BTN_Y
+    offsets['HELPSIZE'] = os.path.getsize(os.path.join(outdir, 'conquer.help'))
     assert len(data) <= 0x10000                 # (a bank of its own, see main.s)
     assert (len(SPRITE_ORDER) + len(tiles)) * 128 <= 0x8000   # (the sprite bank)
     put('conquer.data', bytes(data))

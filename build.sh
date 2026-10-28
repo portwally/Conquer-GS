@@ -34,8 +34,11 @@ cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.DATA#060000" > /dev/
 # the sound effects (an image of the DOC's sound RAM)
 cp build/gfx/conquer.sound "build/CONQUER.SOUND#060000"
 cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.SOUND#060000" > /dev/null
+# the instruction pages (packed), loaded by the game at start
+cp build/gfx/conquer.help "build/CONQUER.HELP#060000"
+cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.HELP#060000" > /dev/null
 # the title picture (a Super Hi-Res screen image, $C1), shown at start
 cp assets/title.shr "build/CONQUER.TITLE#C10000"
 cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.TITLE#C10000" > /dev/null
-cadius CATALOG build/conquer.po | grep -E "PRODOS|CONQUER.SYSTEM|CONQUER.DATA|CONQUER.TITLE|CONQUER.SOUND"
+cadius CATALOG build/conquer.po | grep -E "PRODOS|CONQUER.SYSTEM|CONQUER.DATA|CONQUER.TITLE|CONQUER.SOUND|CONQUER.HELP"
 echo "Built build/conquer.po"
