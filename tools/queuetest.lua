@@ -3,7 +3,8 @@
 -- four at once. With a barracks and a war factory: a soldier, a tank, a
 -- harvester and a power plant all in progress together; a rocket soldier
 -- and a buggy wait (their queues are busy); the three units come out by
--- their own buildings.
+-- their own buildings. More of one kind queue up behind it; an
+-- Option-click takes one back (or stops a structure), the money back.
 local G = dofile("tools/gs.lua")
 local V = G.V
 local I = dofile("build/gfx/icons.lua")
@@ -84,7 +85,47 @@ G.at(1500, function()
   check(q(1) == 0xFFFF and q(2) == 0xFFFF and q(3) == 0xFFFF, "the unit queues idle again")
   check(q(0) == icon('pp_p') and G.w(V.QREADY) ~= 0, "the power plant ready to place")
 end)
-G.run(1510, function(f)
+
+-- more of one kind: three soldiers queued, one taken back (Option-click)
+local cr0, sold0
+local function sold() return G.w(V.QICON + 2) end
+G.at(1520, function()
+  print("-- queued")
+  for i = 0, G.w(V.NUNITS) // 2 - 1 do                  -- (no income now)
+    if G.w(V.UFLAGS, i) & V.F_HARV ~= 0 then
+      G.sw(V.USTATE, i, V.H_IDLE); G.sw(V.UCARGO, i, 0); G.sw(V.UGOAL, i, 0xFFFF)
+    end
+  end
+  G.sw(V.CREDITS, 0, 5000); cr0 = 5000; sold0 = ours(V.SPR_SOLD_P)
+end)
+G.click(1525, I.sold_p[1], I.sold_p[2])
+G.click(1535, I.sold_p[1], I.sold_p[2])
+G.click(1545, I.sold_p[1], I.sold_p[2])
+G.at(1560, function()
+  check(sold() == icon('sold_p') and G.w(V.QMORE, 1) == 2 and G.w(V.CREDITS) == cr0 - 300,
+    string.format("three soldiers: two more queued (%d), 300 paid", G.w(V.QMORE, 1)))
+  G.dump("q1_badge")
+  G.sw(V.OPTHELD, 0, 1)
+end)
+G.click(1565, I.sold_p[1], I.sold_p[2])                 -- Option-click
+G.at(1580, function()
+  G.sw(V.OPTHELD, 0, 0)
+  check(G.w(V.QMORE, 1) == 1 and G.w(V.CREDITS) == cr0 - 200, "Option-click: one fewer, 100 back")
+end)
+G.at(1900, function()
+  check(ours(V.SPR_SOLD_P) == sold0 + 2 and sold() == 0xFFFF,
+    string.format("two soldiers came out, one after the other (%d)", ours(V.SPR_SOLD_P) - sold0))
+end)
+-- a structure: cancelled while it builds, and once it is ready
+G.at(1905, function() G.sw(V.CREDITS, 0, 5000); G.sw(V.QICON, 0, 0xFFFF); G.sw(V.QREADY, 0, 0) end)
+G.click(1910, I.radar_p[1], I.radar_p[2])
+G.at(1930, function() check(G.w(V.QICON) == icon('radar_p') and G.w(V.CREDITS) == 4200, "a radar center being built") ; G.sw(V.OPTHELD, 0, 1) end)
+G.click(1935, I.radar_p[1], I.radar_p[2])
+G.at(1950, function()
+  G.sw(V.OPTHELD, 0, 0)
+  check(G.w(V.QICON) == 0xFFFF and G.w(V.CREDITS) == 5000, "Option-click: stopped, its 800 back")
+end)
+G.run(1990, function(f)
   if f >= 700 then G.sw(V.AICREDITS, 0, 0); G.sw(V.AIWAIT, 0, 30000); watch() end
 end)
-G.at(1505, function() print("problems: " .. problems) end)
+G.at(1985, function() print("problems: " .. problems) end)

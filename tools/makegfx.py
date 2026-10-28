@@ -1713,10 +1713,10 @@ STRUCTS = {
     'turret_p': (200, 4, 20, 50, 600, 8, 1, -40),
     'tower_p': (150, 3, 6, 12, 400, 5, 1, -10),
     'hq_p': (400, 0, 0, 0, 0, 0, 3, HQ_POWER),
-    'bar_e': (300, 0, 0, 0, 0, 0, 3, 0),
-    'fact_e': (400, 0, 0, 0, 0, 0, 2, 0),
-    'ref_e': (300, 0, 0, 0, 0, 0, 2, 0),
-    'pp_e': (200, 0, 0, 0, 0, 0, 2, 0),
+    'bar_e': (300, 0, 0, 0, 500, 20, 3, 0),     # (the enemy's: what it
+    'fact_e': (400, 0, 0, 0, 1000, 25, 2, 0),   #   pays and how long it
+    'ref_e': (300, 0, 0, 0, 1500, 25, 2, 0),    #   takes to rebuild one)
+    'pp_e': (200, 0, 0, 0, 300, 15, 2, 0),
 }
 # the ones that are buildings (drawn with the map, in pieces); turrets and
 # guard towers are drawn like units
@@ -2052,14 +2052,27 @@ BANNER_X = (SIDE_X - BANNER_W) // 2
 BANNER_Y = TOP_H + (VIEW_ROWS * 16 - BANNER_H) // 2
 
 
+# the end-of-game panel: as wide, taller (whole cell rows), with the
+# game's numbers (the game writes them at STAT_X, one line each)
+END_H = 96
+END_Y = TOP_H + (VIEW_ROWS * 16 - END_H) // 2
+END_STATS = ["UNITS BUILT", "UNITS LOST", "ENEMIES DESTROYED", "ORE MINED", "MISSION TIME"]
+STAT_Y0, STAT_DY = 26, 10               # panel rows of the stats' text
+STAT_X, TIME_X = 144, 140               # panel columns: numbers, the time
+
+
 def banner(title, color):
     """End-of-game panel shown in the middle of the map."""
-    b = blank(BANNER_W, BANNER_H, STEEL_D)
-    frame(b, 0, 0, BANNER_W - 1, BANNER_H - 1, INK)
-    bevel(b, 1, 1, BANNER_W - 2, BANNER_H - 2, STEEL, INK)
+    b = blank(BANNER_W, END_H, STEEL_D)
+    frame(b, 0, 0, BANNER_W - 1, END_H - 1, INK)
+    bevel(b, 1, 1, BANNER_W - 2, END_H - 2, STEEL, INK)
     text2x(b, (BANNER_W - (len(title) * 8 - 2)) // 2, 6, title, color)
+    rect(b, 10, 21, BANNER_W - 11, 21, INK)
+    for i, s in enumerate(END_STATS):
+        text(b, 12, STAT_Y0 + i * STAT_DY, s, LIGHT)
+    rect(b, 10, 79, BANNER_W - 11, 79, INK)
     sub = "CLICK TO PLAY AGAIN"
-    text(b, (BANNER_W - text_width(sub)) // 2, 21, sub, LIGHT)
+    text(b, (BANNER_W - text_width(sub)) // 2, 84, sub, LIGHT)
     return b
 
 
@@ -2074,12 +2087,16 @@ CREDX = 20                      # byte column of the credits number
 
 
 POWX = 106                      # byte column of the power numbers
-GLYPHS = '0123456789 /'
+GLYPHS = '0123456789 /:'
+
+
+QUEUE_MAX = 5                   # units of one kind queued at most
 
 
 def digit_glyphs():
     """GLYPHS as 4x8 top-bar pieces, same as text() draws them, in gold
-    (credits), green (power) and red (low power)."""
+    (credits), green (power) and red (low power); then light on black,
+    the number on a build icon with more of its kind queued."""
     out = []
     for color in (GOLD, ORE, RED):
         for ch in GLYPHS:
@@ -2088,6 +2105,14 @@ def digit_glyphs():
             rect(g, 0, 7, 3, 7, INK)
             text(g, 0, 1, ch, color)
             out.append(g)
+    for ch in GLYPHS:
+        g = blank(4, TOP_H, INK)
+        text(g, 0, 1, ch, LIGHT, shadow=None)
+        out.append(g)
+    for ch in GLYPHS:                       # (the end-of-game panel's)
+        g = blank(4, TOP_H, STEEL_D)
+        text(g, 0, 1, ch, GOLD)
+        out.append(g)
     return out
 
 
@@ -2914,11 +2939,11 @@ def main(outdir):
             dmg[w * 4 + a] = f
     put('dmgtab.bin', bytes(dmg))
     put('ready.bin', pack(ready_label()))
-    assert BANNER_X % 2 == 0
+    assert BANNER_X % 2 == 0 and (END_Y - TOP_H) % 16 == 0 and END_H % 16 == 0
     for name, title, color in (('win.rle', "MISSION ACCOMPLISHED", GOLD),
                                ('lose.rle', "MISSION FAILED", RED)):
         layer = blank(SCREEN_W, SCREEN_H)
-        paste_all(layer, banner(title, color), BANNER_X, BANNER_Y)
+        paste_all(layer, banner(title, color), BANNER_X, END_Y)
         put_rle(name, pack(layer))
     # the pause panel: a layer like those, only its first rows (the game
     # unpacks it into the win banner's bank at +$8000)
@@ -3017,11 +3042,17 @@ def main(outdir):
            'PREVOFF': OPT_PREV_Y * 160 + OPT_PREV_X // 2,
            'PREVW': RADAR_W, 'PREVH': RADAR_H * 2,
            'NAIORDER': len(AI_BUILDS), 'NICONS': len(ICON_UNITS), 'NQUEUES': len(QUEUES),
+           'QMAX': QUEUE_MAX, 'BADGE0': 3 * len(GLYPHS),
            **{'SPR_' + u.upper(): SPRITE_ORDER.index(u) for u in UNIT_TYPES},
            'WPN_ROCKETS': ROCKETS,
            'BANNEROFF': BANNER_Y * 160 + BANNER_X // 2,
            'BANNERW': BANNER_W // 2, 'BANNERH': BANNER_H,
            'BANNERX0': BANNER_X, 'BANNERX1': BANNER_X + BANNER_W,
+           'ENDY0': END_Y, 'ENDY1': END_Y + END_H, 'ENDBANDS': END_H // 16,
+           'STATADDR': (END_Y + STAT_Y0 - 1) * 160 + (BANNER_X + STAT_X) // 2,
+           'STATSTEP': STAT_DY * 160,
+           'TIMEADDR': (END_Y + STAT_Y0 - 1 + 4 * STAT_DY) * 160 + (BANNER_X + TIME_X) // 2,
+           'STATGLYPHS': 4 * len(GLYPHS),
            'BANNERY0': BANNER_Y, 'BANNERY1': BANNER_Y + BANNER_H,
            'CURX0': CURSOR_START[0], 'CURY0': CURSOR_START[1],
            'SPR_SELL': SPRITE_ORDER.index('cur_sell'),

@@ -60,6 +60,8 @@ SOUNDDATA equ  $C03D            ;   RAM (else DOC registers), bit 5 =
 SOUNDADRL equ  $C03E            ;   auto-increment, bits 0-3 volume;
 SOUNDADRH equ  $C03F            ;   data, address
 KBD      equ   $C000            ; bit 7 = a key is waiting
+KEYMODS  equ   $C025            ; bit 7 = Apple held, bit 6 = Option
+BADGEOFF equ   $2000-1273       ; drawbadge: from READY to the number
 KBDSTRB  equ   $C010            ; read: done with that key
 
 BGBANK   equ   $02
@@ -107,6 +109,8 @@ F_CLEAN  equ   $7FFF            ; flags & F_CLEAN clears F_DIRTY
 F_REPAIR equ   $0800            ; one of our structures being repaired
 F_BLINK  equ   $1000            ;   (its wrench shows now)
 F_HOLD   equ   $2000            ; it stopped to shoot (see think)
+F_MFIRE  equ   $4000            ; its target was found on the way: shoot
+                                ;   while walking (see decide)
 
 *--- fixed memory in bank 0: $0800-$1FFF (below the program) and from
 *--- $9000 (above it; build.sh checks the program ends below) to $BFFF.
@@ -195,9 +199,10 @@ qicon    equ   mdbase+$40       ; per build queue (0 = structures, 1
 qtype    equ   qicon+QTAB       ;   infantry, 2 vehicles, 3 harvesters):
 qseg     equ   qtype+QTAB       ;   icon being built or NONE, its
 qtime    equ   qseg+QTAB        ;   template, bar segments filled, frames
-qready   equ   qtime+QTAB       ;   to the next segment, and nonzero
-vcol     equ   qready+QTAB      ;   once a structure is done; updplace:
-                                ;   footprint in view tiles
+qready   equ   qtime+QTAB       ;   to the next segment, nonzero once a
+qmore    equ   qready+QTAB      ;   structure is done, and how many
+                                ;   more of the unit are queued after it
+vcol     equ   qmore+QTAB       ; updplace: footprint in view tiles
 vrow     equ   vcol+$2
 radmk    equ   vrow+$2          ; raddot: nonzero = also mark its cells
 sgtile   equ   radmk+$4         ; sight: the tile seen around,
@@ -273,7 +278,8 @@ mlast    equ   mtr+MTRSZ        ;   per tone voice: volume last written
 mvc      equ   mlast+$6         ;   VERTCNT when musictick last looked
 slamfrom equ   mvc+$2           ; slam: the first line's address, and
 slamrows equ   slamfrom+$2      ;   how many lines
-udock    equ   slamrows+$2      ; per harvester: the dock it heads for
+udock    equ   slamrows+$2      ; per harvester: the dock it heads for;
+                                ;   per building: its rally point (NONE)
 DOCKSMAX equ   8                ; docks: where our harvesters unload -
 docks    equ   udock+UTAB       ;   by the command center, then at each
 ndocks   equ   docks+{DOCKSMAX*2} ;   refinery (see calcpower); how many * 2
@@ -288,10 +294,35 @@ ppunit   equ   refunit+$2
 paused   equ   ppunit+$2        ; nonzero: the game is paused (the P key)
 pmusic   equ   paused+$2        ;   and the music was playing
 bnoff    equ   pmusic+$2        ; drawbanner: where its picture is
-oretl    equ   bnoff+$2         ; regrow: the map's ore tiles, how many
+MAINEND  equ   bnoff+$2         ; (the end of the first run)
+* A second run of variables: Merlin 32 crashes when a chain of equ that
+* each follow the last grows too long. (tools/vars.lua checks that the
+* first run ends before it.)
+VARS2    equ   $BD00
+oretl    equ   VARS2            ; regrow: the map's ore tiles, how many
 noretl   equ   oretl+{ORELMAX*2} ;   * 2, and the next one to grow
 growpos  equ   noretl+$2
-VARSEND  equ   growpos+$2
+optheld  equ   growpos+$2       ; test scripts: nonzero = Option held
+rallyb   equ   optheld+$2       ; the building whose rally point the
+                                ;   next click on the ground sets, or NONE
+bldat    equ   rallyb+$2        ; findbld: the building it found
+rallyto  equ   bldat+$2         ; prodq: where the new unit goes, or NONE
+aitl     equ   rallyto+$2       ; the enemy's refinery, power plant, war
+                                ;   factory and barracks: top-left tiles
+aisite   equ   aitl+$8          ;   (the one being rebuilt: index * 2)
+bandy    equ   aisite+$2        ; drawbanner: the band, how many to go
+bandn    equ   bandy+$2
+sbuilt   equ   bandn+$2         ; for the end: our units built, units
+slost    equ   sbuilt+$2        ;   lost, enemy units and buildings
+skills   equ   slost+$2         ;   destroyed, credits from ore, seconds
+smined   equ   skills+$2        ;   played (and frames into the next)
+ssecs    equ   smined+$2
+stick    equ   ssecs+$2
+fxdx     equ   stick+$2         ; fxpos: the corner it looks at
+fxdy     equ   fxdx+$2
+fxax     equ   fxdy+$2          ;   and where the thing is
+fxay     equ   fxax+$2
+VARSEND  equ   fxay+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -528,6 +559,7 @@ restart  lda   #0               ; clear our variables
          dex
          bpl   :qidle
          sta   lookx            ; (no view move asked for)
+         sta   rallyb           ; (no rally point being set)
          sta   lblnum           ; no name tag
          sta   lbltgt
 
@@ -993,7 +1025,7 @@ clickact jsr   inmap
          bit   #F_PLAYER
          beq   :enemy
          bit   #F_BUILDING
-         bne   :rts             ; own building: nothing to do
+         bne   :bld
          phx
          jsr   deselect
          plx
@@ -1002,10 +1034,36 @@ clickact jsr   inmap
          sta   uflags,x
 :rts     rts
 :enemy   jmp   attackorder
-:ground  jmp   moveorder
+:bld     lda   uspr,x           ; our barracks or war factory: the next
+         cmp   #TMPL_BARP       ;   click on the ground sets its rally
+         beq   :rally           ;   point
+         cmp   #TMPL_FACTP
+         bne   :rts
+:rally   phx
+         jsr   deselect
+         plx
+         stx   rallyb
+         rts
+:ground  lda   rallyb
+         bmi   :move
+         jsr   mousetile        ; its rally point (open ground)
+         tay
+         lda   passw,y
+         and   #$00FF
+         bne   :rts
+         tya
+         ldx   rallyb
+         sta   udock,x
+         lda   #NONE
+         sta   rallyb
+         rts
+:move    jmp   moveorder
 
-* deselect: clear the selection on all units
-deselect ldx   #0
+* deselect: clear the selection on all units (and no rally point is
+* being set)
+deselect lda   #NONE
+         sta   rallyb
+         ldx   #0
 :loop    cpx   nunits
          bcs   :done
          lda   uflags,x
@@ -1143,7 +1201,7 @@ moveorder
          beq   :next
          bit   #F_DEAD+F_STATIC
          bne   :next
-         and   #$FFFF-F_CHASE
+         and   #$FFFF-F_CHASE-F_MFIRE
          sta   uflags,x
          lda   #NONE
          sta   utarget,x
@@ -1251,6 +1309,7 @@ attackorder
          lda   tmp3
          sta   utarget,x
          lda   uflags,x
+         and   #$FFFF-F_MFIRE
          ora   #F_CHASE
          sta   uflags,x
          stx   self
@@ -1314,7 +1373,10 @@ updcursor
          inx
          inx
          bra   :sl
-:sd      lda   anysel
+:sd      lda   rallyb           ; (setting a rally point: as if a unit
+         bmi   :sd2             ;   were selected)
+         inc   anysel
+:sd2     lda   anysel
          beq   :arrow
          jsr   inmap
          bcc   :arrow
@@ -1440,7 +1502,7 @@ decide   lda   utarget,x
 :lost    lda   #NONE
          sta   utarget,x
          lda   uflags,x
-         and   #$FFFF-F_CHASE
+         and   #$FFFF-F_CHASE-F_MFIRE
          sta   uflags,x
 
 :notgt   lda   uflags,x         ; attack wave: fight what's in range,
@@ -1455,20 +1517,21 @@ decide   lda   utarget,x
          sta   uflags,x
 :go      clc
          rts
-:nt2     lda   urange,x         ; armed and idle: look for enemies
-         beq   :unarmed
-         lda   unext,x
-         bpl   :go
-         lda   upathpos,x
-         cmp   upathlen,x
-         bne   :go
-         txa                    ; every 32 frames (unit number + frame:
-         lsr                    ;   spread out; on its turn, see think)
+:nt2     lda   urange,x         ; armed: look for enemies every 32
+         beq   :unarmed         ;   frames (unit number + frame: spread
+         txa                    ;   out; on its turn, see think)
+         lsr
          clc
          adc   frame
          and   #31
          bne   :go
          jsr   acquire
+         bcc   :go
+         jsr   walking          ; found one on the way: shoot it while
+         bcc   :go              ;   walking on
+         lda   uflags,x
+         ora   #F_MFIRE
+         sta   uflags,x
          clc
          rts
 :unarmed lda   uflags,x
@@ -1478,7 +1541,30 @@ decide   lda   utarget,x
          clc
          rts
 
-:hastgt  lda   uflags,x         ; attacking a building: deal with
+:hastgt  lda   uflags,x         ; found on the way: shoot it while it
+         bit   #F_MFIRE         ;   is in range, without stopping
+         beq   :ht1
+         jsr   walking
+         bcs   :mf
+         lda   uflags,x         ; arrived: an ordinary target now
+         and   #$FFFF-F_MFIRE
+         sta   uflags,x
+         bra   :ht1
+:mf      jsr   inrange
+         bcc   :mlost
+         lda   ureload,x
+         bne   :mgo
+         jsr   fire
+:mgo     clc
+         rts
+:mlost   lda   #NONE
+         sta   utarget,x
+         lda   uflags,x
+         and   #$FFFF-F_MFIRE
+         sta   uflags,x
+         clc
+         rts
+:ht1     lda   uflags,x         ; attacking a building: deal with
          bit   #F_AMOVE         ; defenders on the way first
          beq   :ht2
          lda   uflags,y
@@ -1538,6 +1624,17 @@ decide   lda   utarget,x
          bne   :go2
 :capp    jsr   approach
          clc
+         rts
+
+* walking: X = unit -> carry set if it is on its way somewhere (a step
+* under way, or a goal); keeps X, Y
+walking  lda   unext,x
+         bpl   :yes
+         lda   ugoal,x
+         bpl   :yes
+         clc
+         rts
+:yes     sec
          rts
 
 * inrange: X = unit, Y = other -> carry set if within X's range
@@ -1782,7 +1879,15 @@ fire     lda   urate,x
 * kill: Y = unit; remove it and leave an explosion (keeps X)
 kill     phx
          tyx
-         lda   uflags,x
+         lda   uflags,x         ; (counted for the end: theirs destroyed,
+         bit   #F_PLAYER        ;   our units lost)
+         bne   :ours
+         inc   skills
+         bra   :count
+:ours    bit   #F_BUILDING
+         bne   :count
+         inc   slost
+:count   lda   uflags,x
          ora   #F_DEAD+F_DIRTY
          and   #$FFFF-F_SEL
          sta   uflags,x
@@ -2709,7 +2814,7 @@ scrpos   lda   ux,x
          bcs   :in
          lda   ux,x
          ldy   uy,x
-         jsr   unseen
+         jsr   anyunseen
          bcs   :out
 :in      sec
          rts
@@ -2736,12 +2841,42 @@ fxpos    lda   fxx,x
          bcs   :out
          lda   fxx,x            ; (none where we have not looked)
          ldy   fxy,x
-         jsr   unseen
+         jsr   anyunseen
          bcs   :out
          sec
          rts
 :out     clc
          rts
+
+* anyunseen: A = world x, Y = world y of something 16x16 -> carry set if
+* any of the tiles under its corners has not been seen (keeps X)
+anyunseen
+         sta   fxax
+         sty   fxay
+         lda   #-7
+         sta   fxdx
+:corner  lda   #-7
+         sta   fxdy
+:corn2   lda   fxay
+         clc
+         adc   fxdy
+         tay
+         lda   fxax
+         clc
+         adc   fxdx
+         jsr   unseen
+         bcs   :rts
+         lda   fxdy
+         bpl   :cx
+         lda   #7
+         sta   fxdy
+         bra   :corn2
+:cx      lda   fxdx
+         bpl   :rts             ; (carry clear: all seen)
+         lda   #7
+         sta   fxdx
+         bra   :corner
+:rts     rts
 
 * setview: viewx / viewy from camx / camy
 setview  lda   camx
@@ -3766,7 +3901,13 @@ harvest  lda   ustate,x
          lda   #60000
 :u3      sta   aicredits
          bra   :u4
-:ours    lda   credits
+:ours    lda   smined           ; (counted for the end)
+         clc
+         adc   tmp
+         bcc   :u5
+         lda   #$FFFF
+:u5      sta   smined
+         lda   credits
          clc
          adc   tmp
          bcc   :u2
@@ -4120,15 +4261,21 @@ sidebarclick
 :rts     rts
 
 * iconclick: Y = icon. Start building it if its queue is idle, it is
-* available and affordable; if it is a finished structure, start (or
-* stop) placing it.
+* available and affordable; a unit being built: one more of it (QMAX in
+* all at most); a finished structure: start (or stop) placing it. With
+* Option (or Apple) held: cancel instead (see cancelq).
 iconclick
-         ldx   icons+18,y       ; X = queue * 2
+         jsr   modkey
+         bcc   :click
+         jmp   cancelq
+:click   ldx   icons+18,y       ; X = queue * 2
          lda   qicon,x
          bmi   :start
          tya
          cmp   qicon,x
          bne   :rts             ; the queue is busy with something else
+         cpx   #2
+         bcs   :more            ; (a unit queue)
          lda   qready,x
          beq   :rts             ; still building
          lda   placing          ; finished: place it, or stop placing
@@ -4137,6 +4284,26 @@ iconclick
          bne   :rts
          stz   boxon            ; (stopped: hide the outline)
 :rts     rts
+:more    lda   qmore,x          ; one more of the unit
+         cmp   #QMAX-1
+         bcs   :rts
+         jsr   available
+         bcc   :rts
+         phx
+         lda   qtype,x
+         tax
+         lda   credits
+         cmp   templates+14,x
+         bcc   :poor
+         sbc   templates+14,x
+         sta   credits
+         plx
+         inc   qmore,x
+         lda   qmore,x
+         inc
+         jmp   drawbadge
+:poor    plx
+         rts
 :start   jsr   available
          bcc   :rts
          stx   tmp3
@@ -4154,13 +4321,16 @@ iconclick
          sta   qicon,x
          stz   qseg,x
          stz   qready,x
+         stz   qmore,x
          phx
          lda   qtype,x
          tax
          lda   templates+16,x
          plx
          sta   qtime,x
-         lda   icons+10,y       ; empty progress bar
+
+* emptybar: Y = icon; draw its empty progress bar (and redraw it)
+emptybar lda   icons+10,y
          tax
          lda   #BARSEGS
          sta   tmp
@@ -4202,9 +4372,9 @@ prodq    lda   qicon,x
          beq   :tick
          lda   frame
          and   #1
-         bne   :rts
+         bne   :rts0
 :tick    dec   qtime,x
-         bne   :rts
+         bne   :rts0
          lda   qtype,x
          tay
          lda   templates+16,y
@@ -4240,20 +4410,55 @@ prodq    lda   qicon,x
          sta   spawnat          ;   need - harvesters, needing none, by
          ldy   qicon,x          ;   the command center (so do the others
                                 ;   if their building is gone meanwhile)
+         lda   #NONE            ; (and where they go next)
+         sta   rallyto
          lda   icons+12,y
          bmi   :out
          jsr   findbld
          bmi   :out
          sta   spawnat
+         ldy   bldat
+         lda   udock,y
+         sta   rallyto
 :out     lda   #F_DIRTY
          sta   spawnfl
          phx
          jsr   spawnunit
          plx
          bcc   :rts             ; no room yet: try again next frame
+         inc   sbuilt
+         phx
+         jsr   torally
+         plx
          lda   #SND_READY       ; (a unit rolled out)
          tsb   sndreq
-         jmp   finishq
+         lda   qmore,x          ; more of it queued: the next one
+         beq   :fin
+         dec   qmore,x
+         stz   qseg,x
+         lda   qtype,x
+         tay
+         lda   templates+16,y
+         sta   qtime,x
+         jmp   freshicon
+:fin     jmp   finishq
+:rts     rts
+
+* torally: the unit just made (slot) walks to rallyto, if any: the
+* nearest free tile around it
+torally  lda   rallyto
+         bmi   :rts
+         sta   clicked
+         jsr   clearclaimed
+         lda   slot
+         sta   self
+         tax
+         jsr   pickgoal
+         bcc   :rts
+         sta   goal
+         stz   avoid
+         ldx   slot
+         jsr   pathto
 :rts     rts
 
 * finishq: X = queue * 2; it is idle again, its icon as it was
@@ -4261,7 +4466,107 @@ finishq  ldy   qicon,x
          lda   #NONE
          sta   qicon,x
          stz   qready,x
+         stz   qmore,x
          jmp   drawicon
+
+* cancelq: Y = icon (Option-click). Being built: one fewer queued, or
+* the queue stops (a structure: not placed after all); its money back.
+cancelq  ldx   icons+18,y
+         tya
+         cmp   qicon,x
+         bne   :rts             ; (not being built)
+         phx
+         lda   qtype,x
+         tax
+         lda   credits
+         clc
+         adc   templates+14,x
+         bcc   :c
+         lda   #$FFFF
+:c       sta   credits
+         plx
+         lda   qmore,x
+         beq   :all
+         dec   qmore,x
+         jmp   freshicon
+:all     cpx   #0
+         bne   :fin
+         stz   placing          ; (a structure: no more placing it)
+         stz   boxon
+:fin     jmp   finishq
+:rts     rts
+
+* freshicon: X = queue * 2; its icon drawn afresh: the picture, the
+* bar as far as it is, and how many are queued if more than one
+freshicon
+         ldy   qicon,x
+         phx
+         jsr   drawicon
+         plx
+         ldy   qicon,x
+         phx
+         jsr   emptybar
+         plx
+         ldy   qicon,x
+         lda   qseg,x           ; the segments filled so far
+         beq   :badge
+         sta   tmp
+         lda   icons+10,y
+         phx
+         tax
+         sep   #$20
+         mx    %10
+         lda   #$DD
+:seg     stal  BGBANK*$10000+$2000,x
+         stal  BGBANK*$10000+$2000+LINE,x
+         inx
+         dec   tmp
+         bne   :seg
+         rep   #$20
+         mx    %00
+         plx
+         ldy   qicon,x
+:badge   lda   qmore,x
+         beq   :mark
+         inc
+         jmp   drawbadge
+:mark    jmp   markicon
+
+* drawbadge: Y = icon, A = how many are queued; the number at the top
+* right of its picture, in the background (and redrawn). It goes 8 lines
+* above and 7 bytes right of where READY goes.
+drawbadge
+         pha
+         lda   #BGBANK
+         sta   dst+2
+         lda   #BADGE0
+         sta   glyphs0
+         lda   icons+20,y
+         clc
+         adc   #BADGEOFF
+         sta   tmp3
+         pla
+         phy
+         jsr   putglyph
+         ply
+         lda   #WORKBANK
+         sta   dst+2
+         jmp   markicon
+
+* modkey: carry set if Option or Apple is held (or a test script says so)
+modkey   lda   optheld
+         bne   :yes
+         sep   #$20
+         mx    %10
+         lda   KEYMODS
+         rep   #$20
+         mx    %00
+         and   #$00C0
+         beq   :no
+:yes     sec
+         rts
+:no      clc
+         rts
 
 * refreshicons: every 8 frames, grey out icons that became unavailable
 * and restore those that became available (unless being built)
@@ -4334,6 +4639,7 @@ findbld  phx
          lda   uspr,x
          cmp   ftile
          bne   :next
+         stx   bldat
          jsr   doorof
          bra   :done
 :next    inx
@@ -6618,60 +6924,12 @@ canplace stz   ty
 * place: put the finished structure at placetile
 place    lda   qtype
          sta   spawnt
-         jsr   findslot
-         bcs   :slot
-         rts                    ; no room in the unit table
-:slot    lda   placetile
-         sta   tmp2
-         jsr   claimslot
          lda   #F_DIRTY
          sta   spawnfl
-         jsr   fillunit         ; Y = the new unit
-         ldx   spawnt
-         lda   templates+14,x   ; it sells for half its price
-         lsr
-         sta   ucost,y
-         lda   templates+22,x
-         sta   upower,y
-         lda   templates+20,x
-         sta   bsize
-         lda   templates+2,x
-         bit   #F_BUILDING
-         beq   :block
-         txa                    ; building: uspr = its template,
-         sta   uspr,y           ; footprint, centered position
-         lda   placetile
-         sta   ucargo,y
-         lda   bsize
-         sta   ustate,y
-         lda   ux,y
-         clc
-         adc   #8
-         sta   ux,y
-         lda   uy,y
-         clc
-         adc   #8
-         sta   uy,y
-         lda   templates,x      ; its four pieces on the map
-         inc
-         sta   tmp3
-         lda   placetile
-         jsr   :piece
-         lda   placetile
-         inc
-         jsr   :piece
-         lda   placetile
-         clc
-         adc   #MAPW
-         jsr   :piece
-         lda   placetile
-         clc
-         adc   #MAPW+1
-         jsr   :piece
-:block   lda   placetile        ; its tiles are walls now
-         sta   tmp2
-         jsr   blockfoot
-         jsr   calcpower        ; (a refinery: a dock more)
+         jsr   putbld
+         bcs   :put
+         rts                    ; no room in the unit table
+:put     jsr   calcpower        ; (a refinery: a dock more)
          stz   placing          ; done
          stz   boxon
          lda   #SND_PLACE
@@ -6690,7 +6948,68 @@ place    lda   qtype
          jsr   spawnunit
 :fin     ldx   #0
          jmp   finishq
-:piece   tay                    ; tile A gets piece tmp3 (sprite + 1)
+
+* putbld: put up a structure of template spawnt (flags + spawnfl) with
+* its top left on tile placetile: Y = the new unit; carry clear if the
+* unit table is full. A building stands on its middle tile (3x3) or its
+* top left one (2x2, then centered between four), with its pieces drawn
+* on the map; its tiles are walls.
+putbld   jsr   findslot
+         bcs   :slot
+         rts
+:slot    ldx   spawnt
+         lda   templates+20,x
+         sta   bsize
+         lda   placetile
+         ldy   bsize
+         cpy   #3
+         bne   :t
+         clc
+         adc   #MAPW+1
+:t       sta   tmp2
+         jsr   claimslot
+         jsr   fillunit         ; Y = the new unit
+         ldx   spawnt
+         lda   templates+14,x   ; it sells for half its price
+         lsr
+         sta   ucost,y
+         lda   templates+22,x
+         sta   upower,y
+         lda   templates+2,x
+         bit   #F_BUILDING
+         beq   :block
+         txa                    ; building: uspr = its template,
+         sta   uspr,y           ; footprint, position
+         lda   placetile
+         sta   ucargo,y
+         lda   bsize
+         sta   ustate,y
+         cmp   #2
+         bne   :pieces
+         lda   ux,y
+         clc
+         adc   #8
+         sta   ux,y
+         lda   uy,y
+         clc
+         adc   #8
+         sta   uy,y
+:pieces  lda   templates,x      ; its pieces on the map, row by row
+         inc
+         sta   tmp3
+         stz   ty
+:prow    stz   tx
+:pcol    lda   ty
+         asl
+         asl
+         asl
+         asl
+         asl
+         clc
+         adc   tx
+         clc
+         adc   placetile
+         tay                    ; tile Y gets piece tmp3 (sprite + 1)
          lda   tmp3
          inc   tmp3
          sep   #$20
@@ -6699,7 +7018,21 @@ place    lda   qtype
          rep   #$20
          mx    %00
          tya
-         jmp   marktile
+         jsr   marktile
+         inc   tx
+         lda   tx
+         cmp   bsize
+         bne   :pcol
+         inc   ty
+         lda   ty
+         cmp   bsize
+         bne   :prow
+:block   lda   placetile        ; its tiles are walls now
+         sta   tmp2
+         jsr   blockfoot
+         ldy   slot
+         sec
+         rts
 
 * blockfoot: wall off a bsize x bsize footprint, top left tile tmp2
 * (keeps X)
@@ -7056,6 +7389,8 @@ claimslot
 * fillunit: unit slot (-> Y) from template spawnt, flags + spawnfl,
 * standing on tile tmp2
 fillunit ldy   slot
+         lda   #NONE            ; (a building: no rally point)
+         sta   udock,y
          ldx   spawnt
          lda   templates,x
          sta   uspr,y
@@ -7225,7 +7560,20 @@ initai   lda   DIFF             ; its numbers at this difficulty (see
 :next    inx
          inx
          bra   :loop
-:done    rts
+:done    ldy   #6               ; where its buildings stand (to rebuild
+:tl      lda   aislots,y        ;   them there)
+         sta   tmp
+         lda   (tmp)
+         tax
+         lda   ucargo,x
+         sta   aitl,y
+         dey
+         dey
+         bpl   :tl
+         rts
+
+aitmpl   dw    TMPL_REFE,TMPL_PPE,TMPL_FACTE,TMPL_BARE ; (rebuilt in
+aislots  dw    refunit,ppunit,factunit,barunit         ;   this order)
 
 ai       lda   aiwait           ; (count down to the next wave)
          beq   :bar
@@ -7233,11 +7581,14 @@ ai       lda   aiwait           ; (count down to the next wave)
 :bar     lda   aibuild
          bpl   :busy
          jsr   aiharv           ; no harvester? its refinery makes one
-         bcc   :order
+         bcc   :rebld
          lda   #TMPL_HARVE
          sta   aibuild
          lda   #AIHARVT
          sta   aitimer
+         jmp   :wave
+:rebld   jsr   airebuild        ; a building gone: rebuild it
+         bcc   :order
          jmp   :wave
 :order   ldy   aiidx            ; next in the build order: if the
          ldx   aiorder,y        ;   building it needs stands (else on to
@@ -7251,8 +7602,9 @@ ai       lda   aiwait           ; (count down to the next wave)
          jmp   :wave
 :afford  jsr   aicount          ; and it has fewer than aimax out
          cmp   aimax
-         bcs   :wave
-         ldy   aiidx
+         bcc   :fewer
+         jmp   :wave
+:fewer   ldy   aiidx
          ldx   aiorder,y
          lda   aicredits
          sec
@@ -7277,7 +7629,14 @@ ai       lda   aiwait           ; (count down to the next wave)
          lda   aibuild          ; done: it comes out of its building
          sta   spawnt           ;   (gone meanwhile: lost)
          tax
-         lda   templates+28,x
+         lda   templates+18,x   ; (a building: it goes up on its spot)
+         beq   :uout
+         jsr   aiputup
+         bcs   :built
+         lda   #30              ; (units stand there: again in a bit)
+         sta   aitimer
+         jmp   :wave
+:uout    lda   templates+28,x
          jsr   findbld
          bmi   :built
          sta   spawnat
@@ -7299,8 +7658,11 @@ ai       lda   aiwait           ; (count down to the next wave)
          lda   #NONE
          sta   aibuild
          pla
-         cmp   #TMPL_HARVE      ; (its harvester: the build order goes on
-         beq   :wave            ;   where it was)
+         cmp   #TMPL_HARVE      ; (its harvester or a building: the build
+         beq   :wave            ;   order goes on where it was)
+         tax
+         lda   templates+18,x
+         bne   :wave
 :nextidx lda   aiidx
          inc
          inc
@@ -7361,6 +7723,104 @@ ai       lda   aiwait           ; (count down to the next wave)
          bcs   :rts
          inc   wavesize
 :rts     rts
+
+* airebuild: one of the enemy's buildings gone, the money for it there
+* and its spot clear of units: start rebuilding it (aibuild, aitimer,
+* aisite; carry set)
+airebuild
+         ldy   #0
+:loop    lda   aislots,y
+         sta   tmp
+         lda   (tmp)
+         tax
+         lda   aitmpl,y
+         jsr   standing
+         bcs   :next            ; still there
+         ldx   aitmpl,y
+         lda   aicredits
+         cmp   templates+14,x
+         bcc   :next            ; (not the money)
+         jsr   aiclear
+         bcc   :next
+         ldx   aitmpl,y
+         lda   aicredits
+         sec
+         sbc   templates+14,x
+         sta   aicredits
+         stx   aibuild
+         sty   aisite
+         lda   templates+16,x
+         asl
+         asl
+         asl
+         sta   aitimer
+         sec
+         rts
+:next    iny
+         iny
+         cpy   #8
+         bcc   :loop
+         clc
+         rts
+
+* aiclear: Y = site * 2 -> carry set if no unit stands on its footprint
+* (keeps Y)
+aiclear  ldx   aitmpl,y
+         lda   templates+20,x
+         sta   bsize
+         lda   aitl,y
+         sta   tmp2
+         stz   ty
+:row     stz   tx
+:col     lda   ty
+         asl
+         asl
+         asl
+         asl
+         asl
+         clc
+         adc   tx
+         clc
+         adc   tmp2
+         asl
+         tax
+         lda   occ,x
+         bne   :no
+         inc   tx
+         lda   tx
+         cmp   bsize
+         bne   :col
+         inc   ty
+         lda   ty
+         cmp   bsize
+         bne   :row
+         sec
+         rts
+:no      clc
+         rts
+
+* aiputup: the building aibuild (spawnt) goes up on its spot (aisite):
+* carry set when done, clear while units stand there
+aiputup  ldy   aisite
+         jsr   aiclear
+         bcs   :go
+         rts
+:go      lda   aitl,y
+         sta   placetile
+         lda   #F_DIRTY
+         sta   spawnfl
+         phy
+         jsr   putbld
+         ply
+         bcc   :done            ; (no room in the unit table: lost)
+         ldx   aislots,y        ; its slot from now on
+         stx   tmp
+         lda   slot
+         sta   (tmp)
+         lda   #SND_PLACE       ; (heard like ours)
+         tsb   sndreq
+:done    sec
+         rts
 
 * aiharv: carry set if the enemy has no harvester but its refinery
 * stands
@@ -7440,7 +7900,13 @@ aicount  phx
 
 * checkend: lost when the command center falls, won when every enemy
 * unit and building is gone
-checkend lda   frame
+checkend inc   stick            ; (seconds played)
+         lda   stick
+         cmp   #60
+         bcc   :t
+         stz   stick
+         inc   ssecs
+:t       lda   frame
          and   #15
          bne   :rts
          ldx   hqunit
@@ -7467,11 +7933,72 @@ checkend lda   frame
 * banner: the game ended; render shows the end-of-game panel from now on
 banner   lda   #1
          sta   newbanner
+
+* drawstats: the game's numbers into the end-of-game panel's layer
+drawstats
+         lda   #WINBANK
+         ldx   gameover
+         cpx   #1
+         beq   :b
+         lda   #LOSEBANK
+:b       sta   dst+2
+         lda   #STATGLYPHS
+         sta   glyphs0
+         lda   #$2000+STATADDR
+         sta   tmp3
+         lda   sbuilt
+         jsr   :num
+         lda   slost
+         jsr   :num
+         lda   skills
+         jsr   :num
+         lda   smined
+         jsr   :num
+         lda   #$2000+TIMEADDR  ; the time: minutes, seconds
+         sta   tmp3
+         lda   ssecs
+         ldy   #0
+:div     cmp   #60
+         bcc   :mm
+         sbc   #60
+         iny
+         bra   :div
+:mm      pha
+         tya
+         cmp   #1000
+         bcc   :m
+         lda   #999
+:m       ldx   #4
+         jsr   putnum
+         lda   #12              ; ':'
+         jsr   putglyph
+         pla
+         ldy   #0
+:ten     cmp   #10
+         bcc   :one
+         sbc   #10
+         iny
+         bra   :ten
+:one     pha
+         tya
+         jsr   putglyph
+         pla
+         jsr   putglyph
+         lda   #WORKBANK
+         sta   dst+2
+         rts
+:num     ldx   #0               ; 5 digits, then the next line
+         jsr   putnum
+         lda   tmp3
+         clc
+         adc   #STATSTEP-10
+         sta   tmp3
          rts
 
-* markbanner: mark the cells under the end-of-game panel
+* markbanner: mark the cells under the end-of-game panel (which covers
+* the pause panel too)
 markbanner
-         lda   #BANNERY0
+         lda   #ENDY0
          sta   ry
 :row     lda   #BANNERX0
          sta   rx
@@ -7486,13 +8013,13 @@ markbanner
          clc
          adc   #16
          sta   ry
-         cmp   #BANNERY1
+         cmp   #ENDY1
          bcc   :row
          rts
 
-* drawbanner: the end-of-game panel into the work buffer. It covers
-* exactly two cell rows; each is redrawn only if one of its cells under
-* the panel is dirty.
+* drawbanner: the end-of-game panel (ENDBANDS cell rows) or the pause
+* panel (two) into the work buffer; each row is redrawn only if one of
+* its cells under the panel is dirty.
 drawbanner
          stz   bnoff
          lda   #WINBANK         ; paused: the pause panel, at +$8000 in
@@ -7500,15 +8027,28 @@ drawbanner
          beq   :end
          ldy   #$8000
          sty   bnoff
-         bra   :src
+         sta   lsrc+2
+         lda   #BANNERY0
+         ldy   #2
+         bra   :bands
 :end     ldy   gameover
          cpy   #1
-         beq   :src
+         beq   :e2
          lda   #LOSEBANK
-:src     sta   lsrc+2
-         lda   #BANNERY0        ; first band
+:e2      sta   lsrc+2
+         lda   #ENDY0
+         ldy   #ENDBANDS
+:bands   sta   bandy
+         sty   bandn
+:nextb   lda   bandy
          jsr   :band
-         lda   #BANNERY0+16     ; second band
+         lda   bandy
+         clc
+         adc   #16
+         sta   bandy
+         dec   bandn
+         bne   :nextb
+         rts
 :band    sta   ry
          lda   #BANNERX0        ; any dirty cell along it?
          sta   rx
@@ -7644,6 +8184,8 @@ initunits
          inc
          sta   occ,x
          plx
+         lda   #NONE            ; (a building: no rally point)
+         sta   udock,y
          lda   unitdata+4,x
          ora   #F_DIRTY         ; draw everything on the first frame
          sta   uflags,y

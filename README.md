@@ -99,7 +99,9 @@ Then click START or press RETURN. Your choices are kept for the next game.
 | Attack | With units selected, click an enemy (a red cross) |
 | Scroll the view | Arrow keys, or hold the mouse at an edge of the screen |
 | Jump to a place | Click it on the radar (with a radar center) |
-| Build | Click an icon in the sidebar |
+| Build | Click an icon in the sidebar; click a unit's icon again to queue more of it (up to 5, the number shows on the icon) |
+| Cancel a build | Option-click (or Apple-click) its icon: one fewer queued, or the build stops; the money comes back |
+| Set a rally point | Click your barracks or war factory, then open ground: its new units walk there |
 | Place a structure | When it says READY, click the icon again, then a spot where the outline is green |
 | Sell or repair | Click SELL or REPAIR, then one of your structures; click the button again to stop |
 | See what something is | Rest the mouse on it |
@@ -123,8 +125,9 @@ Then click START or press RETURN. Your choices are kept for the next game.
 - Structures, infantry, vehicles and harvesters build in four separate
   queues, one of each at a time: a soldier from the barracks, a tank from
   the war factory, a harvester from the command center and a structure can
-  all be under way at once.
-  The cost is paid up front; a bar under the icon shows the progress.
+  all be under way at once. Up to 5 units of one kind can wait in a
+  queue. The cost is paid up front (and given back if you cancel); a bar
+  under the icon shows the progress.
 - Your command center makes 100 power and each power plant 100 more. The
   other structures use power; the top bar shows what is used and what is
   made. With too little power everything builds at half speed and the
@@ -181,7 +184,10 @@ unloads at its refinery. Destroy the harvester and its income stops until
 the refinery has made a new one, which takes 30 seconds (and it builds
 nothing else meanwhile). Without its war factory it builds no more
 vehicles, without its refinery it earns nothing, and without its power
-plant it builds at half speed.
+plant it builds at half speed. But it rebuilds what you destroy, on the
+same spot, once it has the money and the spot is clear: the refinery
+first, then the power plant, the war factory and the barracks. Each takes
+it 15 to 25 seconds.
 
 | | Easy | Normal | Hard |
 |---|---|---|---|
@@ -189,6 +195,13 @@ plant it builds at half speed.
 | Then attacks at least every | 80 seconds | 60 seconds | 45 seconds |
 | Units in an attack | 2 to 4 | 3 to 5 | 3 to 6 |
 | Its share of each load its harvester brings in | 16% | 24% | 36% |
+
+### Fighting
+
+Armed units fire at enemies in range on their own, and units on the move
+shoot at what they pass without stopping. When the mission ends, a panel
+shows how it went: units built and lost, enemy units and buildings
+destroyed, ore mined and the time played.
 
 ### Tips
 

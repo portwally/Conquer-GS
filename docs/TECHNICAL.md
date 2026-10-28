@@ -121,7 +121,10 @@ tiles seen for the first time go into a queue, and each frame uncovers a few
 of them, as many as the time left in that frame allows (it reads the scan
 line counter, $C02E). Uncovering a tile redraws it and any neighbor whose
 edges change, and copies its radar pixels from the radar's terrain kept in
-bank $03. Enemies on unseen tiles are not drawn and cannot be clicked.
+bank $03. Enemies on unseen tiles are not drawn and cannot be clicked: an
+enemy or an effect (a hit, an explosion) is drawn only when the tiles
+under all four of its corners have been seen (`anyunseen`), so none shows
+halfway into the dark.
 
 ## Units
 
@@ -151,7 +154,17 @@ Our side builds in four queues (`QUEUES` in `tools/makegfx.py`; each icon
 names its own): structures, infantry, vehicles and harvesters, one item
 each at a time, all four at once (`production` runs each queue's
 `prodq` every frame). A click on an icon whose queue is busy with
-something else does nothing. The enemy builds one unit at a time.
+something else does nothing; on the unit it is building, it queues one
+more (`qmore`, up to 5 in all, the number drawn on the icon from a fifth
+set of digit glyphs), paid at once; when one is out the next starts.
+With Option or Apple held (`KEYMODS`, $C025) a click takes one back, or
+stops the queue (a ready structure: not placed), and refunds it. The
+enemy builds one unit at a time.
+
+A click on our barracks or war factory, then on open ground, sets its
+rally point (kept in the building's `udock` word, which only harvesters
+use otherwise; `findbld` leaves the building it found in `bldat`): its
+new units walk there (`torally`).
 
 A building's door is the tile below its bottom-left corner. Units come out
 by the door of the building they need (`findbld`): soldiers a barracks,
@@ -207,6 +220,10 @@ vehicles, buildings including turrets), in eighths:
 | Rockets | 3/8 | 2 | 1.5 |
 
 Armed units fire at enemies in range on their own and shoot back when hit.
+Every 32 frames an armed unit looks for an enemy in range, also while it
+walks: one found on the way (F_MFIRE) is shot at whenever the unit has
+reloaded, without stopping, and dropped once out of range; when the unit
+arrives it becomes an ordinary target.
 Shots and explosions are heard when they happen on screen (not inside the
 fog).
 
@@ -230,7 +247,12 @@ up to a limit, and units beyond the wave's size stay home. A wave marches on
 the command center, fighting anything it meets on the way. Its starting
 units stay home and defend. All units and structures share one table of 48;
 when it is full and the enemy cannot build, its next wave goes with as many
-units as its first. The numbers per difficulty (`DIFFICULTIES` in
+units as its first. It rebuilds its buildings (`airebuild`): when one
+is gone, it has the money (`STRUCTS`: 500 to 1500) and no unit stands on
+the spot, it puts it up there again after its build time (15 to 25
+seconds; `putbld`, shared with our placing), the refinery first, then
+the power plant, the war factory, the barracks; nothing else is built
+meanwhile. The numbers per difficulty (`DIFFICULTIES` in
 `tools/makegfx.py`):
 
 | | EASY | NORMAL | HARD |
@@ -259,7 +281,10 @@ minutes `tools/defendtest.lua` plays, on NORMAL and on HARD, without a
 scratch on the command center.
 
 You win when every enemy unit and building is gone, and lose when your
-command center falls.
+command center falls. The end-of-game panel (taller than the pause
+panel, 6 cell rows) shows what the game counted: our units built and
+lost, enemy units and buildings destroyed, credits from ore and the time
+played (`drawstats` writes them into the panel's layer when it ends).
 
 ## Pausing
 

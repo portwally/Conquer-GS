@@ -11,5 +11,7 @@ for k, v in pairs(E) do
   end
   V[K] = v
 end
+assert(V.MAINEND <= V.VARS2, "the first run of variables reaches into the second (src/main.s)")
+assert(V.VARSEND <= 0xBE00, "the variables reach the test words at $BE00 (src/main.s)")
 V.SEEALL = E.seeallf            -- set to 1: the game reveals everything
 return V
