@@ -288,12 +288,15 @@ played (`drawstats` writes them into the panel's layer when it ends).
 
 ## Pausing
 
-P pauses: the main loop then only moves the arrow and redraws, so the
+Esc pauses: the main loop then only moves the arrow and redraws, so the
 game's frame count, the units, production and the enemy all stand still,
 and the music stops (it starts again from the top on RESUME). The pause
-panel is drawn like the end-of-game banners, over the middle of the view;
-its picture is unpacked into the win banner's bank at +$8000. RESUME (or P,
-Space, RETURN) goes on; QUIT MISSION (or Q) goes back to the mission setup
+panel is drawn like the end-of-game banners, over the middle of the view,
+and doubles as the game's instructions: it lists the controls
+(`CONTROLS` in `tools/makegfx.py`). It is 8 cell rows tall, the
+end-of-game panel 6; only its own rows are kept, unpacked into the win
+banner's bank at $A000 (`PAUSEOFF` turns screen addresses into theirs).
+RESUME (or Esc, Space, RETURN) goes on; QUIT MISSION (or Q) goes back to the mission setup
 the way the end of a game does. Space unselects the units and stops placing
 a structure (it stays ready), selling or repairing.
 

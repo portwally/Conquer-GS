@@ -1,5 +1,5 @@
 -- Space and pause test. Space: no unit selected, selling mode off, a ready
--- structure no longer being placed (still ready). P: the game stops (its
+-- structure no longer being placed (still ready). Esc: the game stops (its
 -- frame count, a moving tank, the music) under the pause panel, exactly
 -- as unpacked (but under the arrow); RESUME goes on (the panel gone, the
 -- music back), so does Space; QUIT MISSION goes back to the mission
@@ -28,16 +28,16 @@ local function selected()
   end
   return n
 end
--- the pause panel on the screen: bytes that differ from its layer (in the
--- win banner's bank at +$8000), but under the arrow
+-- the pause panel on the screen: bytes that differ from its layer (its
+-- rows from $A000 in the win banner's bank), but under the arrow
 local function paneldiff()
   local cx, cy = G.w(V.CX), G.w(V.CY)
   local n = 0
-  for y = E.BANNERY0, E.BANNERY1 - 1 do
+  for y = E.PAUSEY0, E.PAUSEY1 - 1 do
     for b = E.BANNERX0 // 2, E.BANNERX1 // 2 - 1 do
       local under = y >= cy - 1 and y < cy + 17 and b * 2 >= cx - 2 and b * 2 < cx + 18
       if not under and mem:read_u8(0xE12000 + y * 160 + b) ~=
-         mem:read_u8(V.WINBANK * 0x10000 + 0xA000 + y * 160 + b) then n = n + 1 end
+         mem:read_u8(V.WINBANK * 0x10000 + 0xA000 + (y - E.PAUSEY0) * 160 + b) then n = n + 1 end
     end
   end
   return n
@@ -80,10 +80,10 @@ G.at(855, function() local x, y = G.tilexy(12, 20); G.click(856, x, y) end)   --
 G.at(880, function()
   print("-- pause")
   check(G.w(V.MUSICON) == 1, "music playing")
-  key("p")
+  key("\27")
 end)
 G.at(895, function()
-  check(G.w(V.PAUSED) == 1, "P: paused")
+  check(G.w(V.PAUSED) == 1, "Esc: paused")
   check(G.w(V.MUSICON) == 0, "the music stopped")
   frame0, x0, y0 = G.w(V.FRAME), G.w(V.UX, 0), G.w(V.UY, 0)
   G.mouse(30, 40)
@@ -101,18 +101,18 @@ G.at(990, function()
   check(G.w(V.FRAME) > frame0, "the frame count goes on")
   check(G.w(V.MUSICON) == 1, "the music back")
   check(paneldiff() > 500, "the panel gone")
-  key("p")
+  key("\27")
 end)
 G.at(1010, function()
-  check(G.w(V.PAUSED) == 1, "P again: paused")
+  check(G.w(V.PAUSED) == 1, "Esc again: paused")
   key(" ")
 end)
 G.at(1030, function()
   check(G.w(V.PAUSED) == 0, "Space: going on")
-  key("p")
+  key("\27")
 end)
 G.at(1050, function()
-  check(G.w(V.PAUSED) == 1, "P again: paused")
+  check(G.w(V.PAUSED) == 1, "Esc again: paused")
   quitting = true
   G.click(1051, (E.PQUITX0 + E.PQUITX1) // 2, (E.PBTNY0 + E.PBTNY1) // 2)   -- QUIT
 end)

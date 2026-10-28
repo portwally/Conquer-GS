@@ -204,9 +204,9 @@ Most print their findings and end with `problems: 0` when all is well.
   without music; after the game ends a click must bring the options back
   with the same choices, and RETURN must start the next game.
 - `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Space must
-  unselect, end selling and stop placing a structure; P must stop the game
-  (its frame count, a moving tank, the music) under the pause panel, byte
-  for byte; RESUME and Space must go on; QUIT MISSION must bring back the mission
+  unselect, end selling and stop placing a structure; Esc must stop the
+  game (its frame count, a moving tank, the music) under the pause panel,
+  byte for byte; RESUME and Space must go on; QUIT MISSION must bring back the mission
   setup, and a new game must start from there.
 
 - `tools/labeltest.lua` (60 s): rests the mouse on one of our tanks, the

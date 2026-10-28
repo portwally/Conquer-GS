@@ -2525,17 +2525,37 @@ def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0):
     return out
 
 
-# the pause panel: as big as the end-of-game banner, in the same place;
-# its buttons (panel-relative x0, x1; y0, y1)
+# the pause panel (Esc): as wide as the end-of-game one, taller (whole
+# cell rows), with the controls - the game's instructions; its buttons
+# (panel-relative x0, x1; y0, y1)
+PAUSE_H = 128
+PAUSE_Y = TOP_H + (VIEW_ROWS * 16 - PAUSE_H) // 2
 PAUSE_BTNS = ((12, 79, "RESUME"), (94, 163, "QUIT MISSION"))
-PAUSE_BTN_Y = (17, 28)
+PAUSE_BTN_Y = (108, 119)
+CONTROLS = [("CLICK", "SELECT / MOVE / ATTACK"),
+            ("DRAG", "SELECT SEVERAL"),
+            ("SPACE", "UNSELECT / STOP PLACING"),
+            ("ARROWS", "SCROLL - OR THE EDGES"),
+            ("ICON", "BUILD - AGAIN: QUEUE"),
+            ("OPTION-CLICK", "CANCEL A BUILD"),
+            ("BARRACKS", "THEN GROUND: RALLY POINT"),
+            ("M  /  ESC", "MUSIC  /  PAUSE")]
+CONTROLS_X, CONTROLS_Y, CONTROLS_DY = (12, 66), 26, 9
 
 
 def pause_panel():
-    b = blank(BANNER_W, BANNER_H, STEEL_D)
-    frame(b, 0, 0, BANNER_W - 1, BANNER_H - 1, INK)
-    bevel(b, 1, 1, BANNER_W - 2, BANNER_H - 2, STEEL, INK)
-    text2x(b, (BANNER_W - (6 * 8 - 2)) // 2, 4, "PAUSED", GOLD)
+    b = blank(BANNER_W, PAUSE_H, STEEL_D)
+    frame(b, 0, 0, BANNER_W - 1, PAUSE_H - 1, INK)
+    bevel(b, 1, 1, BANNER_W - 2, PAUSE_H - 2, STEEL, INK)
+    text2x(b, (BANNER_W - (6 * 8 - 2)) // 2, 5, "PAUSED", GOLD)
+    rect(b, 10, 21, BANNER_W - 11, 21, INK)
+    for i, (key, what) in enumerate(CONTROLS):
+        y = CONTROLS_Y + i * CONTROLS_DY
+        assert CONTROLS_X[0] + text_width(key) < CONTROLS_X[1] - 3
+        assert CONTROLS_X[1] + text_width(what) < BANNER_W - 8, what
+        text(b, CONTROLS_X[0], y, key, GOLD)
+        text(b, CONTROLS_X[1], y, what, LIGHT)
+    rect(b, 10, 101, BANNER_W - 11, 101, INK)
     for x0, x1, txt in PAUSE_BTNS:
         opt_button(b, x0, PAUSE_BTN_Y[0], x1, PAUSE_BTN_Y[1], txt)
     return b
@@ -2945,10 +2965,12 @@ def main(outdir):
         layer = blank(SCREEN_W, SCREEN_H)
         paste_all(layer, banner(title, color), BANNER_X, END_Y)
         put_rle(name, pack(layer))
-    # the pause panel: a layer like those, only its first rows (the game
-    # unpacks it into the win banner's bank at +$8000)
-    layer = blank(SCREEN_W, BANNER_Y + BANNER_H)
-    paste_all(layer, pause_panel(), BANNER_X, BANNER_Y)
+    # the pause panel: a layer like those, only its own rows (the game
+    # unpacks it into the win banner's bank at $A000)
+    assert (PAUSE_Y - TOP_H) % 16 == 0 and PAUSE_H % 16 == 0
+    assert PAUSE_Y <= END_Y and PAUSE_Y + PAUSE_H >= END_Y + END_H
+    layer = blank(SCREEN_W, PAUSE_H)
+    paste_all(layer, pause_panel(), BANNER_X, 0)
     assert 0xA000 + len(layer) * 160 <= 0x10000
     put_rle('pause.rle', pack(layer))
 
@@ -3019,7 +3041,9 @@ def main(outdir):
            **{k: v for i, (x0, x1, _) in enumerate(PAUSE_BTNS)
               for k, v in ((('PRESX0', 'PQUITX0')[i], BANNER_X + x0),
                            (('PRESX1', 'PQUITX1')[i], BANNER_X + x1))},
-           'PBTNY0': BANNER_Y + PAUSE_BTN_Y[0], 'PBTNY1': BANNER_Y + PAUSE_BTN_Y[1],
+           'PBTNY0': PAUSE_Y + PAUSE_BTN_Y[0], 'PBTNY1': PAUSE_Y + PAUSE_BTN_Y[1],
+           'PAUSEY0': PAUSE_Y, 'PAUSEY1': PAUSE_Y + PAUSE_H, 'PAUSEBANDS': PAUSE_H // 16,
+           'PAUSEOFF': (0x8000 - PAUSE_Y * 160) & 0xFFFF,
            'NGLYPHS': len(GLYPHS), 'NTILES': len(tiles), 'SCOOP': SCOOP,
            'MAPW': MAP_COLS, 'MAPH': MAP_ROWS,
            'RADX': SIDE_X + RADAR_X, 'RADY': TOP_H + RADAR_Y,

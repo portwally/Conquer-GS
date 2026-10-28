@@ -291,7 +291,7 @@ radarall equ   radoff+$2        ; test scripts: nonzero = radar without
 factunit equ   radarall+$2      ; the enemy's war factory, refinery and
 refunit  equ   factunit+$2      ;   power plant (unit * 2; see standing)
 ppunit   equ   refunit+$2
-paused   equ   ppunit+$2        ; nonzero: the game is paused (the P key)
+paused   equ   ppunit+$2        ; nonzero: the game is paused (Esc)
 pmusic   equ   paused+$2        ;   and the music was playing
 bnoff    equ   pmusic+$2        ; drawbanner: where its picture is
 MAINEND  equ   bnoff+$2         ; (the end of the first run)
@@ -4834,11 +4834,9 @@ scroll   stz   tmp              ; tmp, tmp2 = step in x, y
          cmp   #$20             ; Space: nothing selected, nothing to
          bne   :pkey            ;   place, no selling or repairing
          jmp   cancel
-:pkey    cmp   #$50             ; P (or p): pause
-         beq   :pause
-         cmp   #$70
-         bne   :mkey
-:pause   jmp   pause
+:pkey    cmp   #$1B             ; Esc: pause (the panel shows the
+         bne   :mkey            ;   controls)
+         jmp   pause
 :mkey    cmp   #$4D             ; M (or m): the music off or on
          beq   :music
          cmp   #$6D
@@ -6623,7 +6621,7 @@ cancel   jsr   deselect
          lda   #0
          jmp   setmode
 
-* pause: the P key - the game stops, the music too, under a panel with
+* pause: the Esc key - the game stops, the music too, under a panel with
 * RESUME and QUIT MISSION (see pauseinput)
 pause    lda   #1
          sta   paused
@@ -6650,7 +6648,7 @@ unpause  stz   paused
          sta   musicon
 :rts     rts
 
-* pauseinput: while paused - P, Space or RETURN, or a click on RESUME, goes
+* pauseinput: while paused - Esc, Space or RETURN, or a click on RESUME, goes
 * on; Q, or a click on QUIT MISSION: carry set (back to the mission setup)
 pauseinput
          sep   #$20
@@ -6671,7 +6669,7 @@ pauseinput
          and   #$005F           ; (capitals)
          cmp   #$51             ; Q
          beq   :quit
-         cmp   #$50             ; P
+         cmp   #$1B             ; Esc
          beq   :go
 :mouse   lda   click
          beq   :stay
@@ -7995,10 +7993,10 @@ drawstats
          sta   tmp3
          rts
 
-* markbanner: mark the cells under the end-of-game panel (which covers
-* the pause panel too)
+* markbanner: mark the cells under the pause panel (which covers the
+* end-of-game panel too)
 markbanner
-         lda   #ENDY0
+         lda   #PAUSEY0
          sta   ry
 :row     lda   #BANNERX0
          sta   rx
@@ -8013,23 +8011,23 @@ markbanner
          clc
          adc   #16
          sta   ry
-         cmp   #ENDY1
+         cmp   #PAUSEY1
          bcc   :row
          rts
 
 * drawbanner: the end-of-game panel (ENDBANDS cell rows) or the pause
-* panel (two) into the work buffer; each row is redrawn only if one of
+* panel (PAUSEBANDS) into the work buffer; each row is redrawn only if one of
 * its cells under the panel is dirty.
 drawbanner
          stz   bnoff
-         lda   #WINBANK         ; paused: the pause panel, at +$8000 in
-         ldy   paused           ;   the win banner's bank
+         lda   #WINBANK         ; paused: the pause panel, its rows from
+         ldy   paused           ;   $A000 in the win banner's bank
          beq   :end
-         ldy   #$8000
+         ldy   #PAUSEOFF
          sty   bnoff
          sta   lsrc+2
-         lda   #BANNERY0
-         ldy   #2
+         lda   #PAUSEY0
+         ldy   #PAUSEBANDS
          bra   :bands
 :end     ldy   gameover
          cpy   #1

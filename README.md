@@ -72,7 +72,7 @@ with its music.
 
 **Your goal:** destroy every enemy unit and building. You lose if your
 command center is destroyed. After a game, click the banner to play again.
-To stop for a moment, press P; from there you can also quit the mission.
+To stop for a moment, press Esc: the pause panel also lists the controls, and from there you can quit the mission.
 
 ### Starting a game
 
@@ -106,7 +106,7 @@ Then click START or press RETURN. Your choices are kept for the next game.
 | Sell or repair | Click SELL or REPAIR, then one of your structures; click the button again to stop |
 | See what something is | Rest the mouse on it |
 | Cancel placing a structure, selling or repairing | Space |
-| Pause | P; then RESUME (or P, Space, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
+| Pause (and see the controls) | Esc; then RESUME (or Esc, Space, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
 | Turn the music off or on | M |
 
 
