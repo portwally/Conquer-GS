@@ -327,12 +327,22 @@ fxay     equ   fxax+$2
 hpage    equ   fxay+$2          ; help: the page shown
 vstmp    equ   hpage+$2         ; vscale: the volume
 musval   equ   vstmp+$2         ; optbtns: the music's button lit
-mdx      equ   musval+$2        ; readmouse: this frame's movement x, y
+mdx      equ   musval+$2          ; readmouse: this frame's movement x, y
 mdy      equ   mdx+$2           ;   (mdx, mdy: indexed 0, 2)
 mhist    equ   mdy+$2           ;   x: the last 3 frames' (mhist, +2, +4),
 mhisty   equ   mhist+$6         ;   y: mhist+6, +8, +10 (indexed 6 on)
 macc     equ   mhisty+$6        ;   what is left to move, x and y
-VARSEND  equ   macc+$4
+mlastd   equ   macc+$4          ; unwrap: the last movement x, y (not 0)
+mlastt   equ   mlastd+$4        ;   and frames since
+mpx      equ   mlastt+$4        ; mpoll: movement since the last frame,
+mpy      equ   mpx+$2           ;   x, y; nonzero: a report came
+mgot     equ   mpy+$2
+mwt      equ   mgot+$2          ; unwrap: scratch: the movement, the
+mwalt    equ   mwt+$2           ;   other it may be, how far that is
+mwd      equ   mwalt+$2         ;   from the last
+mpress   equ   mwd+$2           ; mpoll: the button went down (readmouse
+mrel     equ   mpress+$2        ;   clears it); readmouse: up next frame
+VARSEND  equ   mrel+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -824,8 +834,10 @@ initmouse
          stz   oboxon
          stz   ocsx             ; (the "old" cursor: the first frame
          stz   ocsy             ; redraws everything anyway)
-         ldx   #14              ; (no movement still to come: mhist,
-                                ;   mhisty, macc)
+         ldx   #38              ; (no movement still to come: mhist,
+                                ;   mhisty, macc; none before: mlastd,
+                                ;   mlastt; none waiting: mpx, mpy, mgot;
+                                ;   (mwt...) no button: mpress, mrel)
 :mh      stz   mhist,x
          dex
          dex
@@ -834,32 +846,37 @@ initmouse
 
 readmouse
          stz   click
-         stz   mdx              ; (no movement unless there is data)
-         stz   mdy
-         sep   #$20
-         mx    %10
-         lda   KMSTATUS
-         bpl   :none            ; no new data
-         and   #$02
-         bne   :yonly           ; out of step: Y comes next
-         lda   MOUSEDAT
-         sta   rawx
-         lda   MOUSEDAT
-         sta   rawy
-         bra   :got
-:yonly   lda   MOUSEDAT
-         sta   rawy
-         and   #$80             ; keep button, no X movement
-         sta   rawx
-:got     rep   #$20
-         mx    %00
-         lda   rawx
-         jsr   delta
-         sta   mdx
-         lda   rawy
-         jsr   delta
+         lda   mrel             ; (a click let go before we saw it: up now)
+         beq   :poll
+         stz   mrel
+         stz   btn
+:poll    jsr   mpoll            ; (any report still waiting)
+         lda   mpx              ; this frame's movement: what came since
+         sta   mdx              ;   the last frame
+         lda   mpy
          sta   mdy
+         stz   mpx
+         stz   mpy
          jsr   :smooth
+         lda   mpress           ; pressed since the last frame (perhaps
+         beq   :nopress         ;   let go again already): a click now
+         stz   mpress
+         stz   mgot
+         lda   btn
+         bne   :held
+         lda   #1
+         sta   btn
+         sta   click
+:held    lda   rawy             ; (let go since: up from the next frame)
+         and   #$80
+         beq   :hrts
+         lda   #1
+         sta   mrel
+:hrts    rts
+:nopress lda   mgot             ; no report: the button as it was
+         bne   :btn
+         rts
+:btn     stz   mgot
          lda   rawy             ; button: bit 7 clear = down
          and   #$80
          bne   :up
@@ -871,14 +888,13 @@ readmouse
 :done    rts
 :up      stz   btn
          rts
-         mx    %10
-:none    rep   #$20
-         mx    %00
 * (the movement, smoothed: the emulator - and the ADB - hand it over at
 * uneven times, a frame with none, then one with twice as much; the
 * arrow moves by the average of the last 4 frames', every bit of it
 * in the end)
-:smooth  ldx   #0               ; x, then y (X: 0, 2; Y: its history
+:smooth  inc   mlastt           ; (a moment without movement: the last
+         inc   mlastt+2         ;   one forgotten - see unwrap)
+         ldx   #0               ; x, then y (X: 0, 2; Y: its history
          ldy   #0               ;   0, 6)
 :axis    lda   mhist,y          ; the last 3 frames and this one
          clc
@@ -922,6 +938,103 @@ readmouse
          bne   :axis
          rts
 maxxy    dw    320,200
+
+* mpoll: a report from the mouse, if one is waiting: its movement added
+* to mpx, mpy, the button in rawy (mgot set). Called from musictick too,
+* several times a frame, so the reports come more often and each holds
+* less: MAME's mouse wraps what is more than its 7 bits hold (see
+* unwrap). Keeps X, Y.
+mpoll    sep   #$20
+         mx    %10
+         lda   KMSTATUS
+         bmi   :data
+         rep   #$20
+         mx    %00
+         rts
+         mx    %10
+:data    phx
+         phy
+         and   #$02
+         bne   :yonly           ; out of step: Y comes next
+         lda   MOUSEDAT
+         sta   rawx
+         lda   MOUSEDAT
+         sta   rawy
+         bra   :got
+:yonly   lda   MOUSEDAT
+         sta   rawy
+         and   #$80             ; keep button, no X movement
+         sta   rawx
+:got     rep   #$20
+         mx    %00
+         lda   rawx
+         jsr   delta
+         ldx   #0
+         jsr   unwrap
+         clc
+         adc   mpx
+         sta   mpx
+         lda   rawy
+         jsr   delta
+         ldx   #2
+         jsr   unwrap
+         clc
+         adc   mpy
+         sta   mpy
+         lda   #1
+         sta   mgot
+         lda   rawy             ; the button down: kept until readmouse
+         and   #$80             ;   has seen it
+         bne   :pr
+         lda   #1
+         sta   mpress
+:pr      ply
+         plx
+         rts
+
+* unwrap: A = a movement of axis X (0: x, 2: y) -> A as it really was.
+* The mouse's number is 7 bits (-64 to 63); MAME's mouse wraps a bigger
+* one around instead of holding it (+90 comes as -38). A hand speeds up
+* and slows down smoothly, so of the two it may be - as it came, or 128
+* more the other way - take the one nearer the movement just before
+* (if that was within 8 frames).
+unwrap   sta   mwt
+         cmp   #0               ; (no movement: nothing to say)
+         beq   :rts
+         lda   mlastt,x         ; the last one too long ago: forgotten
+         cmp   #8
+         bcc   :alt
+         stz   mlastd,x
+:alt     lda   mwt              ; the other: 128 less (more)
+         bmi   :up
+         sec
+         sbc   #128
+         bra   :alt2
+:up      clc
+         adc   #128
+:alt2    sta   mwalt
+         sec                    ; |it - the last| against
+         sbc   mlastd,x         ;   |as it came - the last|
+         bpl   :d1
+         eor   #$FFFF
+         inc
+:d1      sta   mwd
+         lda   mwt
+         sec
+         sbc   mlastd,x
+         bpl   :d2
+         eor   #$FFFF
+         inc
+:d2      cmp   mwd
+         bcc   :keep            ; (as it came: nearer, or as near)
+         beq   :keep
+         lda   mwalt
+         sta   mwt
+:keep    lda   mwt
+         sta   mlastd,x
+         stz   mlastt,x
+:rts     lda   mwt
+         rts
 
 * delta: A = mouse byte -> A = signed 16-bit movement
 delta    and   #$7F
@@ -6710,6 +6823,7 @@ musstop  lda   soundok
 * several (a scroll redraws the whole view) doesn't slow the tune.
 * (Keeps X, Y; data bank 0.)
 musictick
+         jsr   mpoll            ; (the mouse, often: see mpoll)
          lda   musicon
          beq   :rts
          sep   #$20

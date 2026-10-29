@@ -382,6 +382,19 @@ what doesn't divide kept for the next frame (`macc`): a steady 2 or 3
 pixels every frame, about a frame and a half behind the mouse, and when
 the mouse stops the arrow stops exactly where all of it takes it.
 
+Each report's movement is a 7-bit number (-64 to 63), and MAME's mouse
+wraps a bigger one around instead of holding it: a fast flick of +90
+arrives as -38, and the arrow jumps the wrong way (up or down too, when
+the hand moves that way). So `mpoll` reads a report whenever one is
+waiting - from `musictick` too, several times a frame, so no report
+holds two frames' movement - and `unwrap` takes, of the two numbers it
+may be (as it came, or 128 more the other way), the one nearer the
+movement just before: a hand speeds up and slows down smoothly. The
+movement collects in `mpx`, `mpy` until `readmouse` uses it. A button
+press `mpoll` sees is kept (`mpress`) until `readmouse` has made it a
+click, even if the button is up again by then (it goes up a frame later,
+`mrel`): in a long frame both could come and go between two looks.
+
 ## Name tags
 
 When the mouse has rested on a unit or building we can see, or on a build

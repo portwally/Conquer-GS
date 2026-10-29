@@ -4,6 +4,9 @@
 -- way the movement arrives) - and once the mouse stops, the arrow must
 -- stop a few frames later with all of the movement applied: none still
 -- to come (mhist, mhisty), less than a pixel kept for the next (macc).
+-- Then shaking fast right and left, up to 90 a frame - more than the
+-- mouse's 7 bits hold: MAME wraps it, the game must undo that - the
+-- arrow never against the hand's way, never up or down.
 local G = dofile("tools/gs.lua")
 local V = G.V
 local problems = 0
@@ -47,14 +50,41 @@ end
 G.at(700, function() G.mouse(60, 40) end)
 leg(710, 760, 3, 2, "right and down")
 leg(800, 850, -3, -2, "left and up")
-G.at(900, function()
+-- fast: shaking right and left, the speed rising to 90 a frame and
+-- falling smoothly - more than the mouse's 7 bits hold, which MAME wraps
+-- (the game must undo that): the arrow must never jump against the
+-- hand's way (beyond the smoothing's lag), nor up or down
+local SPEEDS = {}
+for k = 0, 59 do SPEEDS[k] = math.floor(90 * math.sin(2 * math.pi * k / 12) + 0.5) end
+local fy0, wrong, prev, worst = 0, 0, nil, 0
+G.at(900, function() G.mouse(160, 100) end)
+G.at(910, function() fy0 = G.w(V.CY) end)
+for k = 0, 59 do
+  G.at(911 + k, function() mx = mx + SPEEDS[k]; ax:set_value(mx) end)
+end
+G.run(1030, function(f)
+  if f > 913 and f < 972 then
+    local x = G.w(V.CX)
+    if prev and x > 0 and x < 319 and prev > 0 and prev < 319 then
+      local v = SPEEDS[f - 913] + SPEEDS[f - 914]   -- (the hand, 2 frames back)
+      local d = x - prev
+      if (v > 60 and d < -8) or (v < -60 and d > 8) then
+        wrong = wrong + 1; worst = math.max(worst, math.abs(d))
+      end
+    end
+    prev = x
+  end
+end)
+G.at(990, function()
+  print("-- fast, shaking right and left")
+  check(wrong == 0, string.format("never against the hand (%d frames, %d at most)", wrong, worst))
+  check(G.w(V.CY) == fy0, "nor up or down")
+end)
+G.at(1000, function()
   local left = 0                            -- (movement still to come;
   for k = 0, 5 do left = left + math.abs(G.s16(G.w(V.MHIST, k))) end   -- under
   local part = math.max(G.w(V.MACC, 0), G.w(V.MACC, 1))   -- a pixel kept for later)
   check(left == 0 and part < 4,
     string.format("all the movement applied (%d to come, %d/4 pixel kept)", left, part))
-  check(G.w(V.CX) > 0 and G.w(V.CX) < 319 and G.w(V.CY) > 0 and G.w(V.CY) < 199,
-    string.format("(not held at an edge: %d,%d)", G.w(V.CX), G.w(V.CY)))
   print("problems: " .. problems)
 end)
-G.run(901)

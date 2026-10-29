@@ -213,7 +213,9 @@ Most print their findings and end with `problems: 0` when all is well.
 - `tools/mousetest.lua` (60 s): MAME's mouse moved steadily (right and
   down, then back) must move the arrow every frame, without jumps, and
   stop when the mouse stops with all the movement applied (none still to
-  come, under a pixel kept for the next).
+  come, under a pixel kept for the next); shaken fast right and left (up
+  to 90 a frame, more than the mouse's 7 bits: MAME wraps it) the arrow
+  must never jump against the hand's way, nor up or down.
 - `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Space must
   unselect, end selling and stop placing a structure; Esc must stop the
   game (its frame count, a moving tank, the music) under the pause panel,
