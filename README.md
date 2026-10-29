@@ -68,6 +68,15 @@ The game has been tested in MAME. It takes a little while to load (the
 screen says LOADING and counts along with dots); then the title appears
 with its music.
 
+### The mouse in MAME
+
+MAME turns a modern mouse's movement into many more counts than an Apple
+mouse makes, so the arrow races and big moves overflow. `run.sh` sets
+MAME's mouse sensitivity to 40% for the IIgs (`MOUSESPEED=30 ./run.sh`
+for slower, `60` for faster). In Ample, or MAME started some other way,
+press Tab in the running machine, choose Analog Controls and set Mouse X
+and Mouse Y Sensitivity to about 40.
+
 ## How to play
 
 **Your goal:** destroy every enemy unit and building. You lose if your
