@@ -25,7 +25,7 @@ grep -v 'macadb:MOUSE[12]' "$cfg" | awk -v s="$speed" '
     printf "            <port tag=\":macadb:MOUSE1\" type=\"P1_MOUSE_X\" mask=\"255\" defvalue=\"0\" sensitivity=\"%s\" />\n", s
     printf "            <port tag=\":macadb:MOUSE2\" type=\"P1_MOUSE_Y\" mask=\"255\" defvalue=\"0\" sensitivity=\"%s\" />\n", s
     done = 1
-  }' > "$cfg.new" && mv "$cfg.new" "$cfg"
+  }' > "$cfg.$$" && mv "$cfg.$$" "$cfg"    # (a file of its own: tests start several at once)
 
 exec "$MAME" apple2gs \
   -rompath "$AMPLE/roms" -hashpath "$AMPLE/hash" \
