@@ -14,9 +14,9 @@ python3 tools/makesound.py build/gfx
 rm -f src/error_output.txt
 grep -qi error build/merlin.log && { cat build/merlin.log; exit 1; }
 mv src/CONQUER.SYSTEM "build/CONQUER.SYSTEM#FF2000"
-# the program loads at $2000 and must end below its variables at $9000
+# the program loads at $2000 and must end below its variables at $9200
 size=$(wc -c < "build/CONQUER.SYSTEM#FF2000")
-[ "$size" -le 28672 ] || { echo "CONQUER.SYSTEM is $size bytes, over 28672"; exit 1; }
+[ "$size" -le 29184 ] || { echo "CONQUER.SYSTEM is $size bytes, over 29184"; exit 1; }
 # every equ in the game, for the test scripts (tools/vars.lua)
 python3 tools/equates.py --symbols src/CONQUER.SYSTEM_Symbols.txt \
   src/main.s build/gfx/gfxequ.s build/gfx/sndequ.s build/gfx/musequ.s > build/equates.lua

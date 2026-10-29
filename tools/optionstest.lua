@@ -76,8 +76,10 @@ sub = emu.add_machine_frame_notifier(function()
       click(t0 + 70, area(16))                 -- and round to the last
       click(t0 + 92, area(17, 0, 3))           -- the right arrow: round to
       click(t0 + 110, area(17, 0, 3))          --   the first, the second
-      click(t0 + 130, area(49))                -- music OFF
-      click(t0 + 152, area(32))                -- START
+      click(t0 + 130, area(50))                -- music: volume 2
+      click(t0 + 152, area(57))                -- effects: volume 1
+      click(t0 + 175, area(48))                -- music OFF
+      click(t0 + 197, area(32))                -- START
     end
   elseif phase == "options" then
     if f == t0 + 10 then
@@ -92,7 +94,18 @@ sub = emu.add_machine_frame_notifier(function()
     if f == t0 + 106 then mapno("right arrow:", 0) end
     if f == t0 + 126 then mapno("right arrow again:", 1) end
     if f == t0 + 148 then
-      check("music OFF pressed:", want3)
+      local ok = mem:read_u16(V.MUSVOL) == 2 and mem:read_u16(V.MUSICOFF) == 0 and
+                 mem:read_u16(V.MUSICON) == 1
+      print("  music volume 2, playing: " .. (ok and "yes" or "NO"))
+      if not ok then problems = problems + 1 end
+    end
+    if f == t0 + 170 then
+      local ok = mem:read_u16(V.SFXVOL) == 1
+      print("  effects volume 1: " .. (ok and "yes" or "NO"))
+      if not ok then problems = problems + 1 end
+    end
+    if f == t0 + 193 then
+      check("music OFF pressed (effects at 1):", want3)
       local off = mem:read_u16(V.MUSICON) == 0 and mem:read_u16(V.MUSICOFF) == 1
       print("  the tune stopped: " .. (off and "yes" or "NO"))
       if not off then problems = problems + 1 end
@@ -101,7 +114,7 @@ sub = emu.add_machine_frame_notifier(function()
       local dock, aimax = mem:read_u16(V.DOCK), mem:read_u16(V.AIMAX)
       local ok = dock == 18 * 32 + 25 and aimax == 8 and mem:read_u16(V.DIFF) == 2
       print(string.format("game started %d frames after START: dock tile %d, enemy at most %d units: %s",
-        f - (t0 + 155), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
+        f - (t0 + 200), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
       local quiet = mem:read_u16(V.MUSICON) == 0
       print("  no battle tune (music off): " .. (quiet and "yes" or "NO"))
       if not quiet then problems = problems + 1 end

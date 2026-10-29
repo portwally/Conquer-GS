@@ -128,7 +128,9 @@ prev     equ   $1D00            ; search, per tile (bytes): direction in
 LOWEND   equ   $2000
 
 UTAB     equ   MAXUNITS*2       ; bytes in a per-unit table (a word each)
-VARS     equ   $9000            ; (each address below follows the last)
+VARS     equ   $9200            ; (each address below follows the last)
+YTAB     equ   DATABANK*$10000+$F000 ; y * 160, 200 words (made at start,
+                                ;   above CONQUER.DATA: long addressing)
 ux       equ   VARS             ; position (world pixels)
 uy       equ   ux+UTAB
 uox      equ   uy+UTAB          ; position on screen as last drawn, or
@@ -237,8 +239,7 @@ fogwait  equ   fstart+$2        ; fogwork: frames since it last uncovered
 fogtime  equ   fogwait+$2       ;   (test scripts: its time estimate)
 radidx   equ   fogtime+$6       ; drawradar: the next dot to redraw * 4
 radstop  equ   radidx+$2        ;   where this frame's share ends
-ytab     equ   radstop+$16      ; y * 160, 200 words
-dirty    equ   ytab+$200        ; per screen cell: = stamp if dirty
+dirty    equ   radstop+$16      ; per screen cell: = stamp if dirty
 dirtylist equ  dirty+$210       ; dirty cells: buffer address,
 dirtycell equ  dirtylist+$210   ;   and row * 256 + column
 upath    equ   dirtycell+$210   ; PATHMAX directions per unit
@@ -324,7 +325,9 @@ fxdy     equ   fxdx+$2
 fxax     equ   fxdy+$2          ;   and where the thing is
 fxay     equ   fxax+$2
 hpage    equ   fxay+$2          ; help: the page shown
-VARSEND  equ   hpage+$2
+vstmp    equ   hpage+$2         ; vscale: the volume
+musval   equ   vstmp+$2         ; optbtns: the music's button lit
+VARSEND  equ   musval+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -336,8 +339,10 @@ GAMEGO   equ   $BE02            ; $C0DE once the game runs
 OPTWAIT  equ   $BE04            ; nonzero: the options screen is up (a
                                 ;   test script clears it to start)
 DIFF     equ   $BE06            ; the difficulty chosen (0-2), the map
-MAPNO    equ   $BE08            ;   (0-3) and whether the music is off
-MUSICOFF equ   $BE0A            ;   (0-1): kept from game to game
+MAPNO    equ   $BE08            ;   (0-3), whether the music is off
+MUSICOFF equ   $BE0A            ;   (0-1), the music's and the sound
+MUSVOL   equ   $BE0C            ;   effects' volume (1-4, 0-4: off to
+SFXVOL   equ   $BE0E            ;   full): kept from game to game
 
 *--- fog of war, in bank 1 above the work buffer
 
@@ -513,6 +518,11 @@ main     sei                    ; no interrupts: we own the machine
          stz   MAPNO+1
          stz   MUSICOFF
          stz   MUSICOFF+1
+         lda   #4               ; (full volume)
+         sta   MUSVOL
+         stz   MUSVOL+1
+         sta   SFXVOL
+         stz   SFXVOL+1
          lda   NEWVIDEO
          ora   #$40             ; linear SHR memory: must be set before
          sta   NEWVIDEO         ; writing to $E1/2000, or bytes land
@@ -535,6 +545,7 @@ main     sei                    ; no interrupts: we own the machine
          phk
          plb                    ; data bank = program bank (0)
          jsr   initsound        ; the sound chip, once
+         jsr   sfxvols
 
 restart  lda   #0               ; clear our variables
          ldx   #VARSEND-VARS-2
@@ -3379,7 +3390,7 @@ rectaddr lda   ry
          lda   rx
          lsr
          clc
-         adc   ytab,x
+         adcl   YTAB,x
          clc
          adc   #$2000
          rts
@@ -3418,7 +3429,7 @@ drawclip asl                    ; its pixels: sprite * 128 in SPRBANK
          bcs   :done
          asl
          tax
-         lda   ytab,x
+         ldal   YTAB,x
          clc
          adc   #$2000
          adc   tmp3
@@ -4687,7 +4698,7 @@ drawicon lda   icons+2,y        ; top left in both banks
          lda   icons,y
          lsr
          clc
-         adc   ytab,x
+         adcl   YTAB,x
          clc
          adc   #$2000
          sta   lsrc
@@ -4756,7 +4767,7 @@ dimicon  lda   icons+2,y        ; rows y0+2 .. y1-2
 :row     lda   ry
          asl
          tax
-         lda   ytab,x
+         ldal   YTAB,x
          clc
          adc   tmp
          clc
@@ -5441,7 +5452,7 @@ plot     phx
          lda   rx
          lsr
          clc
-         adc   ytab,x
+         adcl   YTAB,x
          tax
          lda   rx
          lsr                    ; carry = right pixel
@@ -5908,7 +5919,7 @@ fogpix   lda   fgx
          lda   fgx
          lsr
          clc
-         adc   ytab,x
+         adcl   YTAB,x
          tax
          sep   #$20
          mx    %10
@@ -6514,6 +6525,8 @@ musplay  lda   soundok
          cmp   mlast,y          ; (the same as it is: nothing to write)
          beq   :enext
          sta   mlast,y
+         ldx   MUSVOL           ; (as loud as set)
+         jsr   vscale
          sta   mfreq
          tya                    ; volume, both sides
          ora   #$40
@@ -6547,6 +6560,8 @@ musplay  lda   soundok
          asl
          tax
          lda   mtr+MT_DVOL,x
+         ldx   MUSVOL           ; (as loud as set)
+         jsr   vscale
          jsr   :both40
          tya                    ; and from the start: stop, then run
          ora   #$A0
@@ -6578,6 +6593,58 @@ musplay  lda   soundok
          jsr   docx
          inx
          jmp   docx
+
+* vscale: A = a volume -> A * X / 4 (X = 0-4: silent to as it is;
+* keeps Y)
+vscale   cpx   #4
+         bcs   :rts
+         sta   vstmp
+         lda   #0
+:add     dex
+         bmi   :q
+         clc
+         adc   vstmp
+         bra   :add
+:q       lsr
+         lsr
+:rts     rts
+
+* sfxvols: the sound effects' oscillators at the volume set (SFXVOL)
+sfxvols  lda   soundok
+         beq   :rts
+         ldy   #0               ; Y = the sound's sndtab entry
+:snd     cpy   #NSOUNDS*8
+         bcs   :rts
+         lda   sndtab+5,y       ; its first oscillator, voices * 2 of them
+         and   #$00FF
+         sta   so
+         lda   sndtab+6,y
+         and   #$00FF
+         asl
+         sta   sk
+:osc     lda   sndtab+4,y
+         and   #$00FF
+         ldx   SFXVOL
+         jsr   vscale
+         pha
+         lda   so
+         ora   #$40
+         tax
+         pla
+         sep   #$30
+         mx    %11
+         jsr   docw
+         rep   #$30
+         mx    %00
+         inc   so
+         dec   sk
+         bne   :osc
+         tya
+         clc
+         adc   #8
+         tay
+         bra   :snd
+:rts     rts
 
 * musstop: the music silenced (oscillators 0-9 stopped)
 musstop  lda   soundok
@@ -8068,7 +8135,7 @@ drawbanner
          lda   ry
          asl
          tax
-         lda   ytab,x
+         ldal   YTAB,x
          clc
          adc   #$2000+{BANNERX0/2}
          sta   dst
@@ -8274,7 +8341,7 @@ initblds ldx   #0
 * makeytab: ytab[y] = y * 160
 makeytab ldx   #0
          lda   #0
-:loop    sta   ytab,x
+:loop    stal   YTAB,x
          clc
          adc   #LINE
          inx
@@ -8791,8 +8858,9 @@ options  jsr   optmusic
          jsr   opthit
          bmi   :move
          cmp   #32              ; START
-         beq   :go
-         cmp   #64              ; HOW TO PLAY: its pages, then this
+         bne   :notgo
+         jmp   :go
+:notgo   cmp   #64              ; HOW TO PLAY: its pages, then this
          bne   :opt             ;   screen again
          lda   helpok
          beq   :move
@@ -8807,10 +8875,28 @@ options  jsr   optmusic
          bcs   :map
          sta   DIFF
          bra   :redraw
-:music   sec                    ; 48 on, 49 off
+:music   sec                    ; 48: music off, 49-52 its volume
          sbc   #48
-         sta   MUSICOFF
+         cmp   #8
+         bcs   :sound
+         ldx   #1
+         cmp   #0
+         beq   :mset
+         sta   MUSVOL
+         ldx   #0
+:mset    stx   MUSICOFF
+         lda   #NONE            ; (the notes playing: at the new volume)
+         sta   mlast
+         sta   mlast+2
+         sta   mlast+4
          jsr   optmusic
+         bra   :redraw
+:sound   sbc   #8               ; 56-60: the sound effects' volume
+         sta   SFXVOL
+         jsr   sfxvols
+         lda   #SND_READY       ; (how loud: a sample)
+         tsb   sndreq
+         jsr   sounds
          bra   :redraw
 :map     jsr   pickmap
 :redraw  jsr   optbtns
@@ -8820,7 +8906,8 @@ options  jsr   optmusic
          bne   :moved
          lda   cy
          cmp   lcy
-         beq   :loop
+         bne   :moved
+         jmp   :loop
 :moved   lda   cx
          sta   lcx
          lda   cy
@@ -8979,8 +9066,13 @@ opthit   ldx   #0
          rts
 
 * optbtns: draw the options screen's buttons from the clean copy, the
-* chosen difficulty's and music's lit (colors through optbtn)
-optbtns  ldx   #0
+* chosen difficulty's and volumes' lit (colors through optbtn)
+optbtns  lda   MUSVOL           ; (the music's button: off, or its volume)
+         ldx   MUSICOFF
+         beq   :mv
+         lda   #0
+:mv      sta   musval
+         ldx   #0
 :next    lda   opttab,x
          cmp   #NONE
          beq   :rts
@@ -8990,12 +9082,16 @@ optbtns  ldx   #0
          lda   opttab+14,x
          sta   ty
          stz   tmp3
-         lda   opttab+8,x
-         cmp   DIFF
+         lda   opttab+8,x       ; lit: the difficulty, the music's
+         cmp   DIFF             ;   volume (or off), the effects'
          beq   :on
          sec
          sbc   #48
-         cmp   MUSICOFF
+         cmp   musval
+         beq   :on
+         sec
+         sbc   #8
+         cmp   SFXVOL
          bne   :draw
 :on      inc   tmp3
 :draw    phx

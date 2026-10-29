@@ -43,7 +43,7 @@ tests. To just play, download the disk from the
    (`build/gfx/conquer.sound`, `sndtab.bin`, `sndequ.s`); every sound is
    also written as a WAV file to `build/gfx/sounds/`.
 4. Merlin 32 assembles `src/main.s` into CONQUER.SYSTEM (it must end below
-   $9000; `build.sh` checks), and `tools/equates.py` writes every equate and
+   $9200; `build.sh` checks), and `tools/equates.py` writes every equate and
    the program's labels to `build/equates.lua` for the test scripts.
 5. Cadius makes `build/conquer.po`, an 800K ProDOS disk with ProDOS 2.4.3,
    CONQUER.SYSTEM, CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE (the title
@@ -204,10 +204,11 @@ Most print their findings and end with `problems: 0` when all is well.
   `build/gfx/options_expected.bin` (but under the arrow); clicking HARD and
   the map (the next one) must show as in `options_expected2.bin`; the
   arrows must go back and forth through the maps, round from the first to
-  the last; music OFF must stop the title tune and light its button
-  (`options_expected3.bin`); START must begin a game on that map at HARD,
-  without music; after the game ends a click must bring the options back
-  with the same choices, and RETURN must start the next game.
+  the last; the music's volume 2 and the effects' volume 1 must be set
+  (the music playing); music OFF must stop the title tune and light its
+  button (`options_expected3.bin`); START must begin a game on that map
+  at HARD, without music; after the game ends a click must bring the
+  options back with the same choices, and RETURN must start the next game.
 - `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Space must
   unselect, end selling and stop placing a structure; Esc must stop the
   game (its frame count, a moving tank, the music) under the pause panel,

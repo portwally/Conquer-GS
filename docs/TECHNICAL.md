@@ -40,25 +40,26 @@ The game needs a IIgs with at least 1 MB (banks up to $09).
 
 | Bank | What |
 |------|------|
-| $00 | the program ($2000-$8FFF, at most 28K: `build.sh` checks), its tables from $0800 and from $9000, ProDOS and the stack |
+| $00 | the program ($2000-$91FF, at most 28.5K: `build.sh` checks), its tables from $0800 and variables from $9200, ProDOS and the stack |
 | $01 | the work buffer (what the screen will show), the fog table ($A000), its queue ($A600), the sprite code entries ($AE00) |
 | $02 | the background of the top bar and sidebar |
 | $03 | the top bar and sidebar layer, with a copy of the radar's terrain at +$8000 |
 | $04, $05 | the two end-of-game banners; at $A000 the pause panel ($04) and the instruction pages ($05) |
 | $06 | the compiled sprites, and the screen copier at $F000 |
 | $07 | the sprite and tile pixels, then the name tags and the radar's "offline" picture |
-| $08 | CONQUER.DATA as loaded (up to 64K) |
+| $08 | CONQUER.DATA as loaded (up to 60K), the screen's line addresses (`YTAB`) at $F000 |
 | $09 | the compiled map tiles |
 | $E1 | the visible Super Hi-Res screen |
 
 Game state lives at fixed addresses in bank 0, so test scripts can read it:
-per-tile tables and search buffers at $0800-$1FFF, and from $9000 the unit
+per-tile tables and search buffers at $0800-$1FFF, and from $9200 the unit
 tables (a word per slot, 48 slots for units and structures), dirty cells,
 paths, ore and the rest. ProDOS 8 only loads a start-up program into bank 0,
 which it shares with the stack, the text screen, these tables and ProDOS
-itself, hence the program's limit; data goes in other banks. Four words at
-$BE00-$BE0A are kept from game to game and watched by the test scripts:
-TITLEWAIT, GAMEGO, OPTWAIT, and the chosen difficulty, map and music.
+itself, hence the program's limit; data goes in other banks. Eight words at
+$BE00-$BE0E are kept from game to game and watched by the test scripts:
+TITLEWAIT, GAMEGO, OPTWAIT, and the chosen difficulty, map, music on or
+off, the music's volume and the sound effects' volume.
 
 CONQUER.DATA holds, run-length packed: the top bar and sidebar layer, the
 two banners, the sprites and tiles, the CLICK TO START line, the options
@@ -352,7 +353,10 @@ CONQUER.DATA (`maptab.bin`) gives each map's block.
 
 ## The options screen
 
-Before each game: the difficulty, the map and the music, then START. The
+Before each game: the difficulty, the map, the music's and the sound
+effects' volume (off or 1-4: `vscale` turns each volume written to the
+sound chip into that many quarters; the effects' are written again by
+`sfxvols`, the notes' as they play), then START. The
 screen is drawn by `tools/makegfx.py` (logo, panels, buttons) and packed
 into CONQUER.DATA. The game unpacks it into bank $01 (free before a game),
 copies it to the screen and draws each button from that clean copy, lit

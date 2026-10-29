@@ -2417,7 +2417,8 @@ def logo(img, y):
 def options_screen():
     """The screen and its click areas: (x0, y0, x1, y1, action, pressable)
     with action 0-2 a difficulty, 16 + i map i, 32 START, 48 music on, 49
-    music off, 64 HOW TO PLAY."""
+    music off, 49-52 its volume, 56-60 the sound effects' volume (off, 1-4),
+    64 HOW TO PLAY."""
     img = blank(SCREEN_W, SCREEN_H, CLEAR)
     for y in range(0, SCREEN_H, 2):             # scanlines
         rect(img, 0, y, SCREEN_W - 1, y, INK)
@@ -2459,12 +2460,20 @@ def options_screen():
         areas.append((ax0, ay0, ax1, ay1, 16 + k, 0))
     text(img, (SCREEN_W - text_width("%d MAPS" % len(MAPS))) // 2, 59,
          "%d MAPS" % len(MAPS), STEEL, shadow=None)
-    # the bottom: music on or off, START, the copyright
+    # the bottom: the music's and the sound effects' volume (off, or 1-4
+    # bars), START, HOW TO PLAY
     by0 = 176
-    text(img, 20, by0 + 4, "MUSIC", ORE, shadow=None)
-    for k, (x0, x1, txt) in enumerate(((44, 69, "ON"), (72, 101, "OFF"))):
-        opt_button(img, x0, by0, x1, by0 + OPT_BTN_H - 1, txt)
-        areas.append((x0, by0, x1, by0 + OPT_BTN_H - 1, 48 + k, 1))
+    for row, (label, act0) in enumerate((("MUSIC", 48), ("EFFECTS", 56))):
+        y0 = VOL_Y[row]
+        y1 = y0 + VOL_H - 1
+        text(img, 12, y0 + 2, label, ORE, shadow=None)
+        for k, (x0, x1) in enumerate(VOL_X):
+            opt_button(img, x0, y0, x1, y1, "OFF" if k == 0 else "")
+            if k:                               # a bar, taller each step
+                h = (1, 3, 4, 6)[k - 1]
+                cx = (x0 + x1) // 2
+                rect(img, cx - 1, y1 - 2 - h, cx + 1, y1 - 2, GRASS_L)
+            areas.append((x0, y0, x1, y1, act0 + k, 1))
     x0, y0, x1, y1 = OPT_START                  # a big red launch button
     frame(img, x0, y0, x1, y1, INK)
     rect(img, x0 + 1, y0 + 1, x1 - 1, y1 - 1, RED)
@@ -2482,6 +2491,8 @@ def options_screen():
 
 
 HELP_BTN = (218, 299)                   # HOW TO PLAY (x; at the bottom)
+VOL_Y, VOL_H = (172, 183), 10           # the volume rows (tops), height
+VOL_X = ((46, 63), (66, 77), (80, 91), (94, 105), (108, 119))
 NOTE = "© 2026 WALTER TENGLER"
 
 # the instructions: pages behind HOW TO PLAY, each a screen like the
@@ -2612,7 +2623,7 @@ def map_name_image(name):
 
 
 
-def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0):
+def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0, musvol=4, sfxvol=4):
     """The options screen as the game shows it (no cursor)."""
     out = copy(img)
     radar = maps_radar[mapno]
@@ -2624,7 +2635,7 @@ def options_expected(img, maps_radar, markers, diff, mapno, musicoff=0):
     paste_all(out, map_name_image(MAPS[mapno]['name']), OPT_PREV_X, OPT_NAME_Y)
     _, areas = options_screen()
     for x0, y0, x1, y1, act, press in areas:
-        if press and act in (diff, 48 + musicoff):
+        if press and act in (diff, 48 + (0 if musicoff else musvol), 56 + sfxvol):
             press_rect(out, x0, y0, x1, y1)
     return out
 
@@ -2983,12 +2994,14 @@ def main(outdir):
         radars.append(preview_terrain(tiles, c))
     use_map(0)
     # as the game should show it: at first, with HARD and the second map
-    # chosen, and then the music off too (for tools/optionstest.lua)
+    # chosen, and then the music off and the effects at 1 too (for
+    # tools/optionstest.lua)
     hard = len(DIFFICULTIES) - 1
     for name, diff, mapno, off in (('options_expected.bin', DIFF0, 0, 0),
                                    ('options_expected2.bin', hard, 1, 0),
                                    ('options_expected3.bin', hard, 1, 1)):
-        expect = options_expected(opts, radars, markers, diff, mapno, off)
+        expect = options_expected(opts, radars, markers, diff, mapno, off,
+                                  sfxvol=1 if off else 4)
         if mapno == 0:
             write_png(os.path.join(outdir, 'options_preview.png'), expect)
         shr = bytearray(pack(expect)) + bytes(0x7E00 - 32000)
@@ -3240,6 +3253,7 @@ def main(outdir):
     offsets['HELPBTNY'] = HELP_BTN_Y
     offsets['HELPSIZE'] = os.path.getsize(os.path.join(outdir, 'conquer.help'))
     assert len(data) <= 0x10000                 # (a bank of its own, see main.s)
+    assert len(data) <= 0xF000                  # (above it: YTAB, see main.s)
     assert (len(SPRITE_ORDER) + len(tiles)) * 128 <= 0x8000   # (the sprite bank)
     put('conquer.data', bytes(data))
     put('maptab.bin', b''.join(struct.pack('<H', offsets['DATA_MAP%d' % i])

@@ -84,7 +84,8 @@ Click (or press a key) on the title. On the mission setup screen choose:
 - **Map:** one of four, picked with the arrows on either side of the
   preview (or a click on the map for the next one). The preview shows your
   base as a gold dot; where the enemy is, you find out by scouting.
-- **Music:** on or off.
+- **Music and effects:** the volume of each, off or in four steps (a click
+  on the effects' buttons plays a sample of how loud they are).
 
 Then click START or press RETURN. Your choices are kept for the next game.
 HOW TO PLAY opens three pages of instructions: the mission, the controls,
