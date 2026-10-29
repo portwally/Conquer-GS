@@ -210,6 +210,10 @@ Most print their findings and end with `problems: 0` when all is well.
   button (`options_expected3.bin`); START must begin a game on that map
   at HARD, without music; after the game ends a click must bring the
   options back with the same choices, and RETURN must start the next game.
+- `tools/mousetest.lua` (60 s): MAME's mouse moved steadily (right and
+  down, then back) must move the arrow every frame, without jumps, and
+  stop when the mouse stops with all the movement applied (none still to
+  come, under a pixel kept for the next).
 - `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Space must
   unselect, end selling and stop placing a structure; Esc must stop the
   game (its frame count, a moving tank, the music) under the pause panel,

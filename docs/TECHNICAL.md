@@ -370,6 +370,18 @@ count: the button must go up first. The arrow is drawn straight onto the
 screen, what it covers saved and put back as it moves. The choices are kept
 in the words at $BE06-$BE0A for the next game.
 
+## The mouse
+
+The game reads the ADB mouse straight from the GLU (`readmouse`, once a
+frame on every screen). The movement doesn't arrive evenly: in MAME a
+mouse moved steadily 3 pixels a frame comes in as 3, 0, 3, 0, 0, 6, ...
+(the ADB hands it over on its own schedule, not the screen's), so an
+arrow moved by it straight away stands still, then jumps. The arrow moves
+instead by the average of the last four frames' movement (`mhist`), with
+what doesn't divide kept for the next frame (`macc`): a steady 2 or 3
+pixels every frame, about a frame and a half behind the mouse, and when
+the mouse stops the arrow stops exactly where all of it takes it.
+
 ## Name tags
 
 When the mouse has rested on a unit or building we can see, or on a build

@@ -327,7 +327,12 @@ fxay     equ   fxax+$2
 hpage    equ   fxay+$2          ; help: the page shown
 vstmp    equ   hpage+$2         ; vscale: the volume
 musval   equ   vstmp+$2         ; optbtns: the music's button lit
-VARSEND  equ   musval+$2
+mdx      equ   musval+$2        ; readmouse: this frame's movement x, y
+mdy      equ   mdx+$2           ;   (mdx, mdy: indexed 0, 2)
+mhist    equ   mdy+$2           ;   x: the last 3 frames' (mhist, +2, +4),
+mhisty   equ   mhist+$6         ;   y: mhist+6, +8, +10 (indexed 6 on)
+macc     equ   mhisty+$6        ;   what is left to move, x and y
+VARSEND  equ   macc+$4
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -819,10 +824,18 @@ initmouse
          stz   oboxon
          stz   ocsx             ; (the "old" cursor: the first frame
          stz   ocsy             ; redraws everything anyway)
+         ldx   #14              ; (no movement still to come: mhist,
+                                ;   mhisty, macc)
+:mh      stz   mhist,x
+         dex
+         dex
+         bpl   :mh
          jmp   updcursor
 
 readmouse
          stz   click
+         stz   mdx              ; (no movement unless there is data)
+         stz   mdy
          sep   #$20
          mx    %10
          lda   KMSTATUS
@@ -840,29 +853,13 @@ readmouse
          sta   rawx
 :got     rep   #$20
          mx    %00
-
-         lda   rawx             ; x += delta, clamp to 0..319
+         lda   rawx
          jsr   delta
-         clc
-         adc   cx
-         bpl   :x1
-         lda   #0
-:x1      cmp   #320
-         bcc   :x2
-         lda   #319
-:x2      sta   cx
-
-         lda   rawy             ; y += delta, clamp to 0..199
+         sta   mdx
+         lda   rawy
          jsr   delta
-         clc
-         adc   cy
-         bpl   :y1
-         lda   #0
-:y1      cmp   #200
-         bcc   :y2
-         lda   #199
-:y2      sta   cy
-
+         sta   mdy
+         jsr   :smooth
          lda   rawy             ; button: bit 7 clear = down
          and   #$80
          bne   :up
@@ -874,9 +871,57 @@ readmouse
 :done    rts
 :up      stz   btn
          rts
+         mx    %10
 :none    rep   #$20
          mx    %00
+* (the movement, smoothed: the emulator - and the ADB - hand it over at
+* uneven times, a frame with none, then one with twice as much; the
+* arrow moves by the average of the last 4 frames', every bit of it
+* in the end)
+:smooth  ldx   #0               ; x, then y (X: 0, 2; Y: its history
+         ldy   #0               ;   0, 6)
+:axis    lda   mhist,y          ; the last 3 frames and this one
+         clc
+         adc   mhist+2,y
+         adc   mhist+4,y
+         adc   mdx,x
+         clc
+         adc   macc,x           ; (with what is left over)
+         sta   tmp
+         cmp   #$8000           ; / 4 (rounded down)
+         ror
+         cmp   #$8000
+         ror
+         sta   tmp2
+         asl                    ; left over: the rest
+         asl
+         eor   #$FFFF
+         sec
+         adc   tmp
+         sta   macc,x
+         lda   mhist+2,y        ; (and on to the next frame)
+         sta   mhist,y
+         lda   mhist+4,y
+         sta   mhist+2,y
+         lda   mdx,x
+         sta   mhist+4,y
+         lda   tmp2             ; x (y) += it, clamped to the screen
+         clc
+         adc   cx,x
+         bpl   :p
+         lda   #0
+:p       cmp   maxxy,x
+         bcc   :s
+         lda   maxxy,x
+         dec
+:s       sta   cx,x
+         ldy   #6
+         inx
+         inx
+         cpx   #4
+         bne   :axis
          rts
+maxxy    dw    320,200
 
 * delta: A = mouse byte -> A = signed 16-bit movement
 delta    and   #$7F
