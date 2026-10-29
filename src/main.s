@@ -9266,14 +9266,16 @@ optdot   phx
 
 * curshow / curhide: the arrow onto the screen at the mouse (what it
 * covers saved in curbuf) / what it covered back
-curshow  lda   cx
-         ldx   #304
-         jsr   clamp
+curshow  lda   cx               ; (the mouse stays where the arrow can
+         ldx   #304             ;   be drawn, so a click goes where it
+         jsr   clamp            ;   shows: down to the effects' row)
+         sta   cx
          and   #$FFFE
          sta   rx
          lda   cy
          ldx   #184
          jsr   clamp
+         sta   cy
          sta   ry
          jsr   rectaddr
          sta   curaddr

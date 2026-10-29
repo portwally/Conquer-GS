@@ -205,7 +205,8 @@ Most print their findings and end with `problems: 0` when all is well.
   the map (the next one) must show as in `options_expected2.bin`; the
   arrows must go back and forth through the maps, round from the first to
   the last; the music's volume 2 and the effects' volume 1 must be set
-  (the music playing); music OFF must stop the title tune and light its
+  (the music playing), and a click with the mouse at the screen's bottom
+  edge must land where the arrow shows (held at y 184, the effects' row); music OFF must stop the title tune and light its
   button (`options_expected3.bin`); START must begin a game on that map
   at HARD, without music; after the game ends a click must bring the
   options back with the same choices, and RETURN must start the next game.

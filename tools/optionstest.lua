@@ -79,7 +79,10 @@ sub = emu.add_machine_frame_notifier(function()
       click(t0 + 130, area(50))                -- music: volume 2
       click(t0 + 152, area(57))                -- effects: volume 1
       click(t0 + 175, area(48))                -- music OFF
-      click(t0 + 197, area(32))                -- START
+      local ex = area(59)                      -- effects: volume 3, with
+      click(t0 + 197, ex, 199)                 --   the mouse at the bottom
+      click(t0 + 220, area(57))                -- (effects 1 again)
+      click(t0 + 240, area(32))                -- START
     end
   elseif phase == "options" then
     if f == t0 + 10 then
@@ -110,11 +113,16 @@ sub = emu.add_machine_frame_notifier(function()
       print("  the tune stopped: " .. (off and "yes" or "NO"))
       if not off then problems = problems + 1 end
     end
+    if f == t0 + 215 then
+      local ok = mem:read_u16(V.SFXVOL) == 3 and mem:read_u16(V.CY) == 184
+      print("  the mouse at the bottom: kept at the arrow (y 184), effects 3: " .. (ok and "yes" or "NO"))
+      if not ok then problems = problems + 1 end
+    end
     if mem:read_u16(V.GAMEGO) == 0xC0DE then
       local dock, aimax = mem:read_u16(V.DOCK), mem:read_u16(V.AIMAX)
       local ok = dock == 18 * 32 + 25 and aimax == 8 and mem:read_u16(V.DIFF) == 2
       print(string.format("game started %d frames after START: dock tile %d, enemy at most %d units: %s",
-        f - (t0 + 200), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
+        f - (t0 + 243), dock, aimax, ok and "RIVER CROSSING at HARD" or "WRONG"))
       local quiet = mem:read_u16(V.MUSICON) == 0
       print("  no battle tune (music off): " .. (quiet and "yes" or "NO"))
       if not quiet then problems = problems + 1 end
