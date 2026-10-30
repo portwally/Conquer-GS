@@ -64,24 +64,35 @@ KEYMODS  equ   $C025            ; bit 7 = Apple held, bit 6 = Option
 BADGEOFF equ   $2000-1273       ; drawbadge: from READY to the number
 KBDSTRB  equ   $C010            ; read: done with that key
 
-BGBANK   equ   $02
+* The game's banks: $06 to TOPBANK. Started from GS/OS, which stays in
+* memory to come back to after QUIT, the game shares the machine with
+* it: GS/OS keeps blocks in the lowest banks ($02-$04) and the top ones,
+* so the game's sit in between (and memgrab asks for each of them)
+LOWBANK  equ   $06              ; the lowest of them
+TOPBANK  equ   $0D              ; the highest
+BGBANK   equ   $06
 WORKBANK equ   $01
-UIBANK   equ   $03              ; unpacked top bar and sidebar
-WINBANK  equ   $04              ; unpacked end-of-game banners
-LOSEBANK equ   $05
-HELPBANK equ   $05              ; CONQUER.HELP, from HELPADDR
-CODEBANK equ   $06              ; compiled sprites
-TILEBANK equ   $09              ; compiled map tiles
-SPRBANK  equ   $07              ; unpacked sprite pixels (from $0000)
+UIBANK   equ   $07              ; unpacked top bar and sidebar
+WINBANK  equ   $08              ; unpacked end-of-game banners
+LOSEBANK equ   $09
+HELPBANK equ   $09              ; CONQUER.HELP, from HELPADDR
+CODEBANK equ   $0A              ; compiled sprites
+TILEBANK equ   $0D              ; compiled map tiles
+SPRBANK  equ   $0B              ; unpacked sprite pixels (from $0000)
 DOCDEST  equ   $FF              ; loadfile: "bank" meaning DOC sound RAM
-DATABANK equ   $08              ; CONQUER.DATA as loaded, at DATAADDR
+DATABANK equ   $0C              ; CONQUER.DATA as loaded, at DATAADDR
 DATAADDR equ   $0000            ;   (a bank of its own: up to 64K)
+MUSDATA  equ   DATABANK*$10000+DATAADDR+DATA_MUSIC ; the tunes' steps
+ZPKEEP   equ   DATABANK*$10000+$FE00 ; page zero as it was at the start
+                                ;   (quit puts it back)
 
 *--- ProDOS 8 and ROM, used only before we take over
 
 MLI      equ   $BF00            ; ProDOS calls: JSR MLI / call / params
 DEVNUM   equ   $BF30            ; the last drive used (the startup one)
 COUT     equ   $FDED            ; print a character
+TOOLS    equ   $E10000          ; the toolbox: JSL with X = call
+TXTSET   equ   $C051            ; the text screen on
 HOME     equ   $FC58            ; clear the text screen
 IOBUF    equ   $0800            ; loaddata: ProDOS's 1K file buffer and
 CHUNK    equ   $1000            ;   4K read at a time (both free then)
@@ -538,6 +549,17 @@ main     sei                    ; no interrupts: we own the machine
          stz   MUSVOL+1
          sta   SFXVOL
          stz   SFXVOL+1
+         jsr   memgrab          ; (the banks from the Memory Manager, or
+                                ;   a message and QUIT)
+         ldx   #0               ; page zero as ProDOS (and under GS/OS,
+:zkeep   lda   $00,x            ;   GS/OS) had it: quit puts it back
+         stal  ZPKEEP,x
+         inx
+         bne   :zkeep
+         lda   NEWVIDEO         ; (and these: quit puts them back)
+         sta   oldvideo
+         lda   SHADOW
+         sta   oldshadow
          lda   NEWVIDEO
          ora   #$40             ; linear SHR memory: must be set before
          sta   NEWVIDEO         ; writing to $E1/2000, or bytes land
@@ -6476,7 +6498,7 @@ sounds   lda   sndreq
 * mtr when it starts:
 MT_FPS   equ   0                ; frames a step
 MT_STEPS equ   2                ; steps
-MT_VBASE equ   4                ; per voice: where its steps start in musdata
+MT_VBASE equ   4                ; per voice: where its steps start in MUSDATA
 MT_PK    equ   14               ; per tone voice: peak volume, decay a
 MT_DC    equ   20               ;   frame, sustain level, release a frame
 MT_SU    equ   26
@@ -6611,7 +6633,7 @@ musplay  lda   soundok
          clc
          adc   mstep
          tax
-         lda   musdata,x
+         ldal  MUSDATA,x
          and   #$00FF
          beq   :tnext
          cmp   #$FF
@@ -6702,7 +6724,7 @@ musplay  lda   soundok
 :drum    clc
          adc   mstep
          tax
-         lda   musdata,x
+         ldal  MUSDATA,x
          and   #$00FF
          bne   :hit
          rts
@@ -8532,6 +8554,166 @@ setpalette
          bpl   :loop
          rts
 
+         mx    %00
+*-------------------------------------------------------------------
+* QUIT on the mission setup, and the memory the game asks for
+
+* quit: the machine as ProDOS had it - the banks given back to the
+* Memory Manager, the sound halted, no mouse report waiting, page zero,
+* the text screen, NEWVIDEO and shadowing as at the start, emulation
+* mode - then ProDOS's QUIT: to the program selector, or, started from
+* the Finder, back to GS/OS (which needs its memory left alone and page
+* zero as it was). (Does not come back.)
+quit     phk                    ; (the data bank: ours)
+         plb
+         jsr   memfree
+         lda   soundok          ; every oscillator halted
+         beq   :nos
+         ldx   #$A0
+:halt    lda   #$01
+         jsr   docx
+         inx
+         cpx   #$C0
+         bne   :halt
+:nos     lda   #0
+         tcd
+         sep   #$20
+         mx    %10
+:drain   lda   KMSTATUS         ; no mouse report left waiting, no key
+         bpl   :drained
+         lda   MOUSEDAT
+         bra   :drain
+:drained sta   KBDSTRB
+         ldx   #0               ; page zero as it was at the start
+:zback   ldal  ZPKEEP,x
+         sta   $00,x
+         inx
+         cpx   #$100
+         bne   :zback
+         lda   oldshadow
+         sta   SHADOW
+         lda   oldvideo
+         sta   NEWVIDEO
+         sta   TXTSET
+         sec
+         xce                    ; (emulation mode: the stack in page 1)
+         mx    %11
+         ldx   #$FF
+         txs
+         cli
+         jsr   MLI
+         dfb   $65
+         da    quitp
+:stay    bra   :stay
+quitp    dfb   4,0,0,0,0,0,0
+oldvideo dw    0                ; NEWVIDEO and SHADOW as they were at
+oldshadow dw   0                ;   the start
+
+         mx    %11
+* memgrab: every bank the game uses (LOWBANK to TOPBANK) from the Memory
+* Manager, whole, at its place, under an ID of our own: under GS/OS
+* they may hold its blocks, and a ProDOS 8 program may use only memory
+* it was given. Not to be had: a message (the IIgs too small, or the
+* memory in use), and QUIT. (Emulation mode, 8 bits; the firmware has
+* the tools started.)
+memgrab  clc
+         xce
+         rep   #$30
+         mx    %00
+         pha                    ; GetNewID($1000: an application)
+         pea   $1000
+         ldx   #$2003
+         jsl   TOOLS
+         pla
+         sta   memid
+         ldx   #$1F02           ; CompactMem
+         jsl   TOOLS
+         lda   #LOWBANK
+         sta   membank
+:bank    pha                    ; NewHandle: room for the handle,
+         pha
+         pea   $0001            ;   $10000 bytes,
+         pea   $0000
+         lda   memid            ;   ours,
+         pha
+         pea   $C012            ;   locked, fixed, not crossing a bank,
+         lda   membank          ;   at exactly bank:0000
+         pha
+         pea   $0000
+         ldx   #$0902
+         jsl   TOOLS
+         pla
+         pla
+         bcs   :fail
+         inc   membank
+         lda   membank
+         cmp   #TOPBANK+1
+         bne   :bank
+         sec
+         xce
+         mx    %11
+         rts
+         mx    %00
+:fail    jsr   memfree          ; (what we got: back)
+         pha                    ; TotalMem: 1 MB at least?
+         pha
+         ldx   #$1D02
+         jsl   TOOLS
+         pla
+         pla
+         sec
+         xce
+         mx    %11
+         jsr   HOME
+         ldy   #0
+         cmp   #$10
+         bcs   :inuse
+:m1      lda   memmsg,y
+         beq   :key
+         jsr   COUT
+         iny
+         bra   :m1
+:inuse   lda   inusemsg,y
+         beq   :key
+         jsr   COUT
+         iny
+         bra   :inuse
+:key     sta   KBDSTRB
+:wait    lda   KBD
+         bpl   :wait
+         sta   KBDSTRB
+         jsr   MLI
+         dfb   $65
+         da    quitp
+:stop    bra   :stop
+
+         mx    %00
+* memfree: (16 bits) the banks memgrab got, back to the Memory Manager,
+* and our ID
+memfree  lda   memid
+         beq   :rts
+         pha                    ; DisposeAll(ours)
+         ldx   #$1102
+         jsl   TOOLS
+         lda   memid
+         pha                    ; DeleteID
+         ldx   #$2103
+         jsl   TOOLS
+         stz   memid
+:rts     rts
+memid    dw    0
+membank  dw    0
+memmsg   dfb   $8D,$8D,$8D,$8D,$8D,$8D,$8D,$8D
+         asc   "     CONQUER GS NEEDS AN APPLE IIGS",8D
+         asc   "     WITH AT LEAST 1 MB OF MEMORY.",8D,8D
+         asc   "     PRESS A KEY.",00
+inusemsg dfb   $8D,$8D,$8D,$8D,$8D,$8D,$8D,$8D
+         asc   "     CONQUER GS NEEDS MEMORY THAT",8D
+         asc   "     THE SYSTEM IS USING. START IT FROM",8D
+         asc   "     ITS OWN DISK, OR WITH FEWER DESK",8D
+         asc   "     ACCESSORIES AND INITS.",8D,8D
+         asc   "     PRESS A KEY.",00
+
 *-------------------------------------------------------------------
 * Loading, at start, in emulation mode, while ProDOS is still in charge.
 * Each file is looked for next to this program (the current folder),
@@ -9013,13 +9195,18 @@ options  jsr   optmusic
 :nokey   rep   #$20
          mx    %00
          lda   click
-         beq   :move
-         jsr   opthit
-         bmi   :move
+         bne   :hit
+:tomove  jmp   :move
+:hit     jsr   opthit
+         bmi   :tomove
          cmp   #32              ; START
          bne   :notgo
          jmp   :go
-:notgo   cmp   #64              ; HOW TO PLAY: its pages, then this
+:notgo   cmp   #88              ; QUIT: back to ProDOS
+         bne   :nquit
+         jsr   curhide
+         jmp   quit
+:nquit   cmp   #64              ; HOW TO PLAY: its pages, then this
          bne   :opt             ;   screen again
          lda   helpok
          beq   :move
@@ -10043,7 +10230,6 @@ ringtab  putbin ../build/gfx/ringtab.bin
 sighttab putbin ../build/gfx/sight.bin   ; sight circles' half widths
 btnmap   putbin ../build/gfx/btnmap.bin  ; a pressed button's colors
 aiorder  putbin ../build/gfx/aiorder.bin ; the enemy's build order (templates)
-musdata  putbin ../build/gfx/music.bin   ; the tunes' steps, per voice
 musfreq  putbin ../build/gfx/musfreq.bin ; their notes' frequencies
 mustracks putbin ../build/gfx/mustracks.bin ; each tune's numbers (MT_)
 sndtab   putbin ../build/gfx/sndtab.bin  ; per sound: page, size/res, frequency,

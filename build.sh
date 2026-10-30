@@ -4,8 +4,9 @@ set -e
 cd "$(dirname "$0")" || exit 1
 
 mkdir -p build
+mkdir -p build/gfx
+python3 tools/makemusic.py build/gfx      # (first: CONQUER.DATA takes its steps)
 python3 tools/makegfx.py build/gfx
-python3 tools/makemusic.py build/gfx
 python3 tools/makesound.py build/gfx
 
 # assemble (Merlin 32 writes its output next to the source)

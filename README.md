@@ -120,6 +120,7 @@ setup).
 | See what something is | Rest the mouse on it |
 | Cancel placing a structure, selling or repairing | Space |
 | Pause (and see the controls) | Esc; then RESUME (or Esc, Space, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
+| Leave the game | QUIT on the mission setup (top right): back to ProDOS's program selector, or to the Finder when started from GS/OS |
 | Turn the music off or on | M |
 
 

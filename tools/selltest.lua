@@ -43,7 +43,7 @@ local function pressed(off, w)
   local d = 0
   for y = 0, E.BTNH - 1 do for x = 0, w - 1 do
     local a = off + y * 160 + x
-    if mem:read_u8(0xE12000 + a) ~= mem:read_u8(0x032000 + a) then d = d + 1 end
+    if mem:read_u8(0xE12000 + a) ~= mem:read_u8(V.UIBANK * 0x10000 + 0x2000 + a) then d = d + 1 end
   end end
   return d
 end

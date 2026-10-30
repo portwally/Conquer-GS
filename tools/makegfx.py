@@ -2418,19 +2418,22 @@ def options_screen():
     """The screen and its click areas: (x0, y0, x1, y1, action, pressable)
     with action 0-2 a difficulty, 16 + i map i, 32 START, 48 music on, 49
     music off, 49-52 its volume, 56-60 the sound effects' volume (off, 1-4),
-    64 HOW TO PLAY."""
+    64 HOW TO PLAY, 88 QUIT."""
     img = blank(SCREEN_W, SCREEN_H, CLEAR)
     for y in range(0, SCREEN_H, 2):             # scanlines
         rect(img, 0, y, SCREEN_W - 1, y, INK)
     hud_corners(img, 2, 2, SCREEN_W - 3, SCREEN_H - 3, GRASS, 12)
     lx0, lx1 = logo(img, 2)
+    qx0, qy0, qx1, qy1 = QUIT_BTN               # back to ProDOS
+    assert qx0 > lx1 + 8
+    opt_button(img, qx0, qy0, qx1, qy1, "QUIT")
     rect(img, lx0, 23, lx1, 23, RED)             # a red rule under it
     sub = "MISSION SETUP"
     sx = (SCREEN_W - text_width(sub)) // 2
     text(img, sx, 25, sub, ORE, shadow=None)
     for x0, x1 in ((24, sx - 6), (sx + text_width(sub) + 5, SCREEN_W - 25)):
         rect(img, x0, 27, x1, 27, GRASS_D)
-    areas = []
+    areas = [(qx0, qy0, qx1, qy1, 88, 0)]
     # difficulty: a panel with the three buttons
     metal_panel(img, 16, 31, 303, 51)
     text(img, 24, OPT_DIFF_Y + 4, "DIFFICULTY", ORE, shadow=None)
@@ -2491,6 +2494,7 @@ def options_screen():
 
 
 HELP_BTN = (218, 299)                   # HOW TO PLAY (x; at the bottom)
+QUIT_BTN = (258, 6, 301, 18)            # QUIT (top right, by the logo)
 VOL_Y, VOL_H = (172, 183), 10           # the volume rows (tops), height
 VOL_X = ((46, 63), (66, 77), (80, 91), (94, 105), (108, 119))
 NOTE = "© 2026 WALTER TENGLER"
@@ -3247,6 +3251,9 @@ def main(outdir):
         data += packed[name]
     offsets['DATA_PROMPT'] = len(data)
     data += prompt
+    # the tunes' steps (tools/makemusic.py, run before this)
+    offsets['DATA_MUSIC'] = len(data)
+    data += open(os.path.join(outdir, 'music.bin'), 'rb').read()
     offsets.update(pinfo)
     offsets['NHELP'] = len(help_texts())
     offsets['HELPADDR'] = HELP_ADDR

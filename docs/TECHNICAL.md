@@ -20,10 +20,10 @@ banks 0 and 1 and never returns to ProDOS.
 2. CONQUER.TITLE (a Super Hi-Res screen image, from `assets/title.shr`)
    loads straight into screen memory in bank $E1, not shown yet.
 3. CONQUER.DATA (the packed graphics, maps, options screen and name tags)
-   loads into bank $08.
+   loads into bank $0C.
 4. CONQUER.SOUND (an image of the sound chip's RAM) streams into the sound
    chip, and CONQUER.HELP (the packed instruction pages behind HOW TO
-   PLAY) loads into bank $05 at $A000, above the lose banner's layer.
+   PLAY) loads into bank $09 at $A000, above the lose banner's layer.
 5. The game unpacks the graphics, compiles the sprites into code, then shows
    the title with CLICK TO START and starts the title tune; after a click,
    the options screen; then the chosen map is unpacked and the game starts.
@@ -36,19 +36,29 @@ after ProDOS has booted (the title 3.3 s, CONQUER.DATA 3.1 s, CONQUER.SOUND
 
 ### Memory
 
-The game needs a IIgs with at least 1 MB (banks up to $09).
+The game needs a IIgs with at least 1 MB (banks up to $0D).
+
+The game's banks are $06 to $0D (`LOWBANK` to `TOPBANK`), not from $02:
+started from GS/OS, which stays in memory to come back to after QUIT, the
+game shares the machine with it, and GS/OS keeps blocks in the lowest
+banks ($02-$04 on a 2 MB IIgs) and the top ones. At start `memgrab` asks
+the Memory Manager for each of the game's, whole and at its place
+(`NewHandle`: locked, fixed, not crossing a bank, at exactly that
+address - attributes $C012, under an ID of its own). If a bank is not to
+be had, a message says so (the IIgs too small, or the memory in use) and
+a key quits.
 
 | Bank | What |
 |------|------|
 | $00 | the program ($2000-$91FF, at most 28.5K: `build.sh` checks), its tables from $0800 and variables from $9200, ProDOS and the stack |
 | $01 | the work buffer (what the screen will show), the fog table ($A000), its queue ($A600), the sprite code entries ($AE00) |
-| $02 | the background of the top bar and sidebar |
-| $03 | the top bar and sidebar layer, with a copy of the radar's terrain at +$8000 |
-| $04, $05 | the two end-of-game banners; at $A000 the pause panel ($04) and the instruction pages ($05) |
-| $06 | the compiled sprites, and the screen copier at $F000 |
-| $07 | the sprite and tile pixels, then the name tags and the radar's "offline" picture |
-| $08 | CONQUER.DATA as loaded (up to 60K), the screen's line addresses (`YTAB`) at $F000 |
-| $09 | the compiled map tiles |
+| $06 | the background of the top bar and sidebar |
+| $07 | the top bar and sidebar layer, with a copy of the radar's terrain at +$8000 |
+| $08, $09 | the two end-of-game banners; at $A000 the pause panel ($08) and the instruction pages ($09) |
+| $0A | the compiled sprites, and the screen copier at $F000 |
+| $0B | the sprite and tile pixels, then the name tags and the radar's "offline" picture |
+| $0C | CONQUER.DATA as loaded (up to 60K: the packed screens, the tunes' steps), the screen's line addresses (`YTAB`) at $F000, page zero as it was at the start (`ZPKEEP`, $FE00) |
+| $0D | the compiled map tiles |
 | $E1 | the visible Super Hi-Res screen |
 
 Game state lives at fixed addresses in bank 0, so test scripts can read it:
@@ -87,7 +97,7 @@ something about them changed.
 
 The map is never stored as pixels: every tile is compiled into a routine
 that draws it, and a building is a few overlay pieces drawn over the ground
-of its tiles. Sprites are compiled at start-up into code in bank $06: one
+of its tiles. Sprites are compiled at start-up into code in bank $0A: one
 routine per sprite that stores its solid words directly and masks only edge
 words (the masks come from the pixels: color 0 is see-through). Tiles are
 compiled the same way without masks; the fog's edge sprites draw black
@@ -123,7 +133,7 @@ tiles seen for the first time go into a queue, and each frame uncovers a few
 of them, as many as the time left in that frame allows (it reads the scan
 line counter, $C02E). Uncovering a tile redraws it and any neighbor whose
 edges change, and copies its radar pixels from the radar's terrain kept in
-bank $03. Enemies on unseen tiles are not drawn and cannot be clicked: an
+bank $07. Enemies on unseen tiles are not drawn and cannot be clicked: an
 enemy or an effect (a hit, an explosion) is drawn only when the tiles
 under all four of its corners have been seen (`anyunseen`), so none shows
 halfway into the dark.
@@ -400,7 +410,7 @@ click, even if the button is up again by then (it goes up a frame later,
 When the mouse has rested on a unit or building we can see, or on a build
 icon, for a moment, its name (and an icon's price) shows below the arrow:
 ours in gold, theirs in red. The tags are drawn by `tools/makegfx.py`,
-packed into CONQUER.DATA and unpacked into bank $07 after the sprites; each
+packed into CONQUER.DATA and unpacked into bank $0B after the sprites; each
 frame the game looks at what is under the resting mouse every 8th frame and
 draws the tag into the work buffer when its cells are redrawn.
 
@@ -506,3 +516,14 @@ showing). These runs are exactly repeatable, but a small change in timing
 anywhere changes what the units do, so their worst stretch moves by a fps
 or two from build to build. Scrolling is the exception: each scroll step
 costs about 12 frames.
+
+## Quitting
+
+QUIT on the mission setup (`quit`) hands the machine back: the banks
+given back to the Memory Manager (`memfree`), every sound oscillator
+halted, no mouse report left waiting, page zero, NEWVIDEO and the shadow
+register as they were at the start (`ZPKEEP`, `oldvideo`, `oldshadow`),
+the text screen on, emulation mode, then ProDOS's QUIT call - to the
+program selector (Bitsy Bye on the game disk), or, started from the
+Finder, back to GS/OS. GS/OS needs both its memory left alone and page
+zero as it was; without them it hangs on its way back.

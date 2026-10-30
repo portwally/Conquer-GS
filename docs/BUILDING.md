@@ -30,14 +30,14 @@ tests. To just play, download the disk from the
 
 `build.sh`:
 
-1. `tools/makegfx.py` draws all the art and writes the packed graphics
-   (`build/gfx/conquer.data`) and the tables the program includes
-   (`build/gfx/*.bin`, `gfxequ.s`), plus pictures to look at
-   (`build/gfx/preview.png`, `preview2.png`, `options_preview.png`,
-   `labels.png`).
-2. `tools/makemusic.py` writes the two tunes (`music.bin`, `musfreq.bin`,
+1. `tools/makemusic.py` writes the two tunes (`music.bin`, `musfreq.bin`,
    `mustracks.bin`, `musequ.s`) and renders them to listen to
    (`music_preview.wav`, `battle_preview.wav`).
+2. `tools/makegfx.py` draws all the art and writes the packed graphics
+   and the tunes' steps (`build/gfx/conquer.data`) and the tables the
+   program includes (`build/gfx/*.bin`, `gfxequ.s`), plus pictures to look
+   at (`build/gfx/preview.png`, `preview2.png`, `options_preview.png`,
+   `labels.png`).
 3. `tools/makesound.py` makes the sound effects and packs them with the
    music's instruments into an image of the sound chip's RAM
    (`build/gfx/conquer.sound`, `sndtab.bin`, `sndequ.s`); every sound is
@@ -216,6 +216,10 @@ Most print their findings and end with `problems: 0` when all is well.
   come, under a pixel kept for the next); shaken fast right and left (up
   to 90 a frame, more than the mouse's 7 bits: MAME wraps it) the arrow
   must never jump against the hand's way, nor up or down.
+- `tools/quittest.lua` (300 s, run with `SHOWOPTIONS=1`): QUIT on the
+  mission setup must turn Super Hi-Res off and show ProDOS's program
+  selector on the text screen; CONQUER.SYSTEM chosen there must start the
+  game again, as far as the mission setup.
 - `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Space must
   unselect, end selling and stop placing a structure; Esc must stop the
   game (its frame count, a moving tank, the music) under the pause panel,

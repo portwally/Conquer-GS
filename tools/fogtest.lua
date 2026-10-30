@@ -125,7 +125,7 @@ local function checkradar()
   for py = 0, 35 do for px = 0, 47 do
     local x, y = 264 + px, 20 + py
     local t = (py * 2 // 3) * W + px * 2 // 3
-    local b = mem:read_u8(0x03A000 + y * 160 + (x >> 1))     -- the terrain kept aside
+    local b = mem:read_u8(V.UIBANK * 0x10000 + 0xA000 + y * 160 + (x >> 1))     -- the terrain kept aside
     local p = (x & 1 == 0) and (b >> 4) or (b & 15)
     img[y * 512 + x] = seen(t) and p or 0
   end end
@@ -144,7 +144,7 @@ local function checkradar()
   for y = y0, y1 do img[y * 512 + x0] = 12; img[y * 512 + x1] = 12 end
   local bad = 0
   for y = 20, 55 do for x = 264, 311 do
-    local b = mem:read_u8(0x022000 + y * 160 + (x >> 1))
+    local b = mem:read_u8(V.BGBANK * 0x10000 + 0x2000 + y * 160 + (x >> 1))
     local p = (x & 1 == 0) and (b >> 4) or (b & 15)
     if p ~= img[y * 512 + x] then bad = bad + 1 end
   end end
