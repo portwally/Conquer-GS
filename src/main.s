@@ -353,7 +353,19 @@ mwalt    equ   mwt+$2           ;   other it may be, how far that is
 mwd      equ   mwalt+$2         ;   from the last
 mpress   equ   mwd+$2           ; mpoll: the button went down (readmouse
 mrel     equ   mpress+$2        ;   clears it); readmouse: up next frame
-VARSEND  equ   mrel+$2
+aiwtgt   equ   mrel+$2          ; the enemy's attack's target (all go for
+                                ;   it; NONE: to be picked: wavetgt)
+aiwrear  equ   aiwtgt+$2        ;   the furthest attacker's distance to it
+aiwstall equ   aiwrear+$2       ;   (times that didn't shrink: stuck ones)
+aidefcd  equ   aiwstall+$2      ; defending: frames until it answers again
+aidatk   equ   aidefcd+$2       ;   the attacker, what it still needs, how
+aidneed  equ   aidatk+$2        ;   many more it may send
+aidn     equ   aidneed+$2
+aisbuild equ   aidn+$2          ; the building the enemy puts up meanwhile
+aistimer equ   aisbuild+$2      ;   (NONE: none) and frames still to go
+airnd    equ   aistimer+$2      ; aiaand's number (never 0)
+aigidx   equ   airnd+$2         ; aiguard: the unit it looks at next
+VARSEND  equ   aigidx+$2
 
 *--- two words the test scripts watch from the very start, so outside
 *--- the variables (cleared at restart) and outside $2000-$9FFF (which
@@ -395,6 +407,9 @@ RADLATE  equ   100              ; drawradar: more than one dot a frame
 
 *--- direct page variables
 
+jobwant  equ   $75              ; (a byte) the unit * 2 first in line for
+                                ;   the next path search, $FF: none
+jobwcnt  equ   $33              ; (a byte) others turned away for it
 jmpvec   equ   $30              ; drawspr: compiled sprite entry, 3 bytes
 cptr     equ   $34              ; compile: code output pointer, 3 bytes
 sidx     equ   $38              ; compile: sprite * 2
@@ -711,6 +726,12 @@ restart  lda   #0               ; clear our variables
          jsr   initai
          lda   #NONE            ; no path search running
          sta   jobunit
+         sep   #$20             ; (nobody in line)
+         mx    %10
+         lda   #$FF
+         sta   jobwant
+         rep   #$20
+         mx    %00
          stz   grange
          stz   cstamp
          stz   newbanner
@@ -1700,11 +1721,12 @@ decide   lda   utarget,x
          sta   uflags,x
 
 :notgt   lda   uflags,x         ; attack wave: fight what's in range,
-         bit   #F_AMOVE         ; else march on the command center
+         bit   #F_AMOVE         ; else march on its attack's target
          beq   :nt2
          jsr   acquire
          bcs   :go
-         lda   hqunit
+         jsr   wavetgt          ; (its attack's target; none left: stay)
+         bcc   :go
          sta   utarget,x
          lda   uflags,x
          ora   #F_CHASE
@@ -1761,7 +1783,11 @@ decide   lda   utarget,x
 :ht1     lda   uflags,x         ; attacking a building: deal with
          bit   #F_AMOVE         ; defenders on the way first
          beq   :ht2
-         lda   uflags,y
+         jsr   wavehold         ; (ahead of the others: wait for them)
+         bcc   :ahead
+         sec
+         rts
+:ahead   lda   uflags,y
          bit   #F_BUILDING
          beq   :ht2
          txa                    ; (every 32 frames, spread out)
@@ -2030,6 +2056,8 @@ fire     lda   urate,x
          lda   uflags,y         ; redraw the health bar
          ora   #F_DIRTY
          sta   uflags,y
+         jsr   aihit            ; (the enemy's base or harvester: it
+                                ;   sends help)
          lda   ux,y
          sta   rx
          lda   uy,y
@@ -2220,7 +2248,11 @@ step     lda   unext,x
          cmp   self
          beq   :free
          tay                    ; tile busy: one of ours standing idle
-         jsr   budge            ; there makes room; else wait, then go
+         jsr   swap             ;   (both stuck a while: change places)
+         bcc   :noswap
+         ldx   self
+         rts
+:noswap  jsr   budge            ; there makes room; else wait, then go
          inc   ublock,x         ; around
          lda   ublock,x
          cmp   #40
@@ -2321,12 +2353,17 @@ pathto   stx   self
          lda   goal
          sta   ugoal,x
          lda   jobunit
-         bmi   :start           ; no search running: start ours
+         bmi   :free            ; no search running: ours, if it's our turn
          cmp   self
-         bne   :rts             ; somebody else's: wait our turn
+         bne   :wait            ; somebody else's: wait our turn
          lda   jobgoal
          cmp   goal
          beq   :rts             ; ours is already running
+         bra   :start
+:wait    jsr   jobline
+         bra   :rts
+:free    jsr   jobturn
+         bcc   :rts
 :start   lda   self             ; new search (or a new goal for ours):
          sta   jobunit          ; pathwork sets it up on its next turn
          lda   goal
@@ -2338,6 +2375,57 @@ pathto   stx   self
          lda   #1
          sta   jobinit
 :rts     stz   grange           ; (the next caller sets it again)
+         rts
+
+* jobline: self waits for a search: first in line (jobwant) if nobody
+* is, so the next search is its - not whoever asks first after one ends
+* (with many units waiting, some never got one and stood for ever)
+jobline  lda   jobwant
+         and   #$00FF
+         cmp   #$00FF
+         bne   :rts
+         sep   #$20
+         mx    %10
+         lda   self
+         sta   jobwant
+         stz   jobwcnt
+         rep   #$20
+         mx    %00
+:rts     rts
+
+* jobturn: no search running: carry set if self may start one - nobody
+* in line, self is, or the one in line no longer waits for a path
+jobturn  lda   jobwant
+         and   #$00FF
+         cmp   #$00FF
+         beq   :go
+         cmp   self
+         beq   :mine
+         tay
+         lda   uflags,y         ; still waiting: alive, not holding to
+         bit   #F_DEAD+F_HOLD+F_STATIC   ;   shoot, a goal, no path
+         bne   :mine
+         lda   ugoal,y
+         bmi   :mine
+         lda   upathlen,y
+         bne   :mine
+         sep   #$20             ; (it doesn't ask for long: out of line,
+         mx    %10              ;   so nobody waits for ever behind it)
+         inc   jobwcnt
+         lda   jobwcnt
+         cmp   #60
+         rep   #$20
+         mx    %00
+         bcs   :mine
+         clc
+         rts
+:mine    sep   #$20             ; (out of line)
+         mx    %10
+         lda   #$FF
+         sta   jobwant
+         rep   #$20
+         mx    %00
+:go      sec
          rts
 
 * newsearch: X = unit; set up a breadth-first search toward jobgoal on
@@ -4064,7 +4152,25 @@ harvest  lda   ustate,x
          bcc   :gohome
          jsr   nudge
          ldx   self
-         lda   ugoal,x
+         lda   udock,x          ; another unit on the dock: wait a while
+         asl                    ;   with no goal - so others can budge
+         tay                    ;   it aside, not stuck behind it (a
+         lda   occ,y            ;   harvester leaving the dock, a unit
+         beq   :onway           ;   on it trying to get past)
+         dec
+         dec
+         cmp   self
+         beq   :onway
+         lda   #NONE
+         sta   ugoal,x
+         lda   upathlen,x
+         sta   upathpos,x
+         lda   #H_WAIT
+         sta   ustate,x
+         lda   #45
+         sta   ureload,x
+         rts
+:onway   lda   ugoal,x
          bpl   :rts2            ; still on its way
          jmp   :gohome          ; no path: plan again
 :dock    lda   #H_UNLOAD
@@ -4202,7 +4308,12 @@ nudge    lda   udock,x
          pha
          tyx
          stx   self
-         jsr   clearclaimed     ; claims the docks, so it won't stay
+         jsr   clearclaimed     ; claims our docks, so it won't stay -
+         lda   clicked          ;   and this one (the enemy's refinery's
+         asl                    ;   isn't among them: it picked the dock
+         tax                    ;   it stood on and stayed)
+         lda   cstamp
+         sta   claimed,x
          jsr   pickgoal         ;   (clicked: the dock)
          bcc   :done
          sta   goal
@@ -4212,6 +4323,81 @@ nudge    lda   udock,x
 :done    pla
          sta   self
 :rts     rts
+
+* swap: X = self, Y = a unit on self's next tile. When both have been
+* stuck a while (each waiting for the other's tile, or in a crowd round
+* a dock), one of ours standing still: they change places, self one step
+* on, the other plans again - else such a pair waits for ever. Carry set
+* if they did (else X, Y kept).
+swap     lda   ublock,x
+         cmp   #12
+         bcc   :no
+         lda   ublock,y
+         cmp   #12
+         bcc   :no
+         lda   uflags,y
+         eor   uflags,x
+         and   #F_PLAYER
+         bne   :no
+         lda   uflags,y
+         bit   #F_STATIC+F_BUILDING+F_DEAD
+         bne   :no
+         lda   unext,y
+         bpl   :no
+         lda   unext,x
+         bmi   :go
+:no      clc
+         rts
+:go      lda   utile,x          ; the tiles
+         sta   tmp
+         lda   utile,y
+         sta   utile,x
+         lda   tmp
+         sta   utile,y
+         lda   ux,x             ; the places on the map
+         sta   tmp
+         lda   ux,y
+         sta   ux,x
+         lda   tmp
+         sta   ux,y
+         lda   uy,x
+         sta   tmp
+         lda   uy,y
+         sta   uy,x
+         lda   tmp
+         sta   uy,y
+         inc   upathpos,x       ; (self: a step on its path)
+         lda   upathlen,y       ; (the other: plans again)
+         sta   upathpos,y
+         lda   #0
+         sta   ublock,x
+         sta   ublock,y
+         lda   uflags,x
+         ora   #F_DIRTY
+         sta   uflags,x
+         lda   uflags,y
+         ora   #F_DIRTY
+         sta   uflags,y
+         sty   tmp              ; who stands where
+         lda   utile,x
+         asl
+         tay
+         txa
+         inc
+         inc
+         sta   occ,y
+         phx
+         ldx   tmp
+         lda   utile,x
+         asl
+         tay
+         txa
+         inc
+         inc
+         sta   occ,y
+         plx
+         sec
+         rts
 
 * budge: X = self, walking into tile ntile, where unit Y stands. If that
 * unit is on the same side, can move and stands idle (no goal, no target;
@@ -6304,12 +6490,21 @@ repairs  lda   frame
          and   #F_REPAIR+F_DEAD
          cmp   #F_REPAIR
          bne   :next
-         lda   credits
+         lda   uflags,x         ; the enemy's: its money (and it stops
+         lsr                    ;   with AIKEEP left, for its units)
+         bcs   :ours
+         lda   aicredits
+         cmp   #AIKEEP
+         bcc   :stop
+         sbc   #REPAIRCOST
+         sta   aicredits
+         bra   :fix
+:ours    lda   credits
          cmp   #REPAIRCOST
          bcc   :stop            ; (no money left)
          sbc   #REPAIRCOST
          sta   credits
-         lda   uhp,x
+:fix     lda   uhp,x
          clc
          adc   #REPAIRHP
          cmp   umaxhp,x
@@ -7782,6 +7977,14 @@ initai   lda   DIFF             ; its numbers at this difficulty (see
          sta   aimax
          lda   #NONE
          sta   aibuild
+         sta   aisbuild
+         sta   aiwtgt
+         stz   aiwrear
+         stz   aiwstall
+         stz   aidefcd
+         lda   #$ACE1           ; (any number but 0)
+         sta   airnd
+         stz   aigidx
          stz   aiidx
          stz   gameover
          ldx   #0               ; find our command center and the
@@ -7821,13 +8024,304 @@ initai   lda   DIFF             ; its numbers at this difficulty (see
          bpl   :tl
          rts
 
-aitmpl   dw    TMPL_REFE,TMPL_PPE,TMPL_FACTE,TMPL_BARE ; (rebuilt in
-aislots  dw    refunit,ppunit,factunit,barunit         ;   this order)
+wtcats   dw    TMPL_REFP,TMPL_PPP,TMPL_FACTP,$FFFE,$FFFF ; (wavetgt: what its
+                                ;   attacks go for, first to last; $FFFE
+                                ;   harvesters, $FFFF any building)
+* aihit: X = shooter, Y = the one hit (both kept): one of the enemy's
+* buildings or harvesters hit by one of ours - the enemy sends help
+* (aidefend), at most once a second
+aihit    lda   uflags,y
+         bit   #F_PLAYER
+         bne   :rts
+         bit   #F_BUILDING+F_HARV
+         beq   :rts
+         lda   uflags,x
+         bit   #F_PLAYER
+         beq   :rts
+         lda   aidefcd
+         bne   :rts
+         phx
+         phy
+         jsr   aidefend
+         ply
+         plx
+:rts     rts
+
+* aidefend: X = one of ours that hit the enemy's base or a harvester:
+* the enemy sends its nearest armed units at home (not in an attack,
+* fighting nobody) after it - up to 6, until their hit points add up to
+* twice the attacker's (those already after it count) - and doesn't
+* call again for a second
+aidefend stx   aidatk
+         lda   #60
+         sta   aidefcd
+         lda   umaxhp,x
+         asl
+         sta   aidneed
+         ldy   #0               ; those already after it
+:on      cpy   nunits
+         bcs   :ond
+         lda   uflags,y
+         bit   #F_PLAYER+F_DEAD
+         bne   :onn
+         lda   utarget,y
+         cmp   aidatk
+         bne   :onn
+         lda   aidneed
+         sec
+         sbc   umaxhp,y
+         bcc   :rts0
+         beq   :rts0
+         sta   aidneed
+:onn     iny
+         iny
+         bra   :on
+:rts0    rts
+:ond     lda   #6
+         sta   aidn
+:pick    lda   #$7FFF           ; the nearest one free
+         sta   tmp3
+         lda   #NONE
+         sta   tmp2
+         ldx   aidatk
+         lda   utile,x
+         sta   ntile
+         ldy   #0
+:c       cpy   nunits
+         bcs   :cd
+         lda   uflags,y
+         bit   #F_PLAYER+F_DEAD+F_BUILDING+F_STATIC+F_HARV+F_AMOVE
+         bne   :cn
+         lda   urange,y
+         beq   :cn
+         lda   utarget,y
+         bpl   :cn
+         lda   utile,y
+         jsr   tdist
+         cmp   tmp3
+         bcs   :cn
+         sta   tmp3
+         sty   tmp2
+:cn      iny
+         iny
+         bra   :c
+:cd      ldy   tmp2             ; none left
+         bmi   :rts
+         lda   aidatk           ; after it
+         sta   utarget,y
+         lda   uflags,y
+         ora   #F_CHASE
+         sta   uflags,y
+         lda   aidneed
+         sec
+         sbc   umaxhp,y
+         bcc   :rts
+         beq   :rts
+         sta   aidneed
+         dec   aidn
+         bne   :pick
+:rts     rts
+
+* tdist: A = a tile -> A = its distance to ntile (the larger of the
+* column and row distances; keeps X, Y)
+tdist    pha
+         and   #MAPW-1
+         sta   tx
+         lda   ntile
+         and   #MAPW-1
+         sec
+         sbc   tx
+         jsr   absval
+         sta   tx
+         pla
+         lsr                    ; (/ MAPW: 32)
+         lsr
+         lsr
+         lsr
+         lsr
+         sta   ty
+         lda   ntile
+         lsr                    ; (/ MAPW: 32)
+         lsr
+         lsr
+         lsr
+         lsr
+         sec
+         sbc   ty
+         jsr   absval
+         cmp   tx
+         bcs   :rts
+         lda   tx
+:rts     rts
+
+* wavetgt: X = an attacker with nothing in range -> carry set, A = its
+* attack's target (all go for the same one): of ours, the nearest
+* refinery, else power plant, war factory, harvester, else any building
+* (keeps X)
+wavetgt  lda   aiwtgt
+         bmi   :pick
+         tay
+         lda   uflags,y         ; still there?
+         and   #F_PLAYER+F_DEAD
+         cmp   #F_PLAYER
+         bne   :pick
+         tya
+         sec
+         rts
+:pick    lda   utile,x
+         sta   ntile
+         phx
+         ldx   #0
+:cat     lda   wtcats,x       ; (in the main program: data bank 0)
+         stx   tmp
+         jsr   wtpick
+         ldx   tmp
+         lda   aiwtgt
+         bpl   :got
+         inx
+         inx
+         cpx   #10
+         bcc   :cat
+:got     plx
+         lda   aiwtgt
+         bmi   :none
+:have    sec
+         rts
+:none    clc
+         rts
+
+* (A = a template, $FFFE harvesters, $FFFF any building: the nearest of
+* ours to ntile into aiwtgt, or NONE)
+wtpick   sta   tmp2
+         lda   #NONE
+         sta   aiwtgt
+         lda   #$7FFF
+         sta   tmp3
+         ldy   #0
+:l       cpy   nunits
+         bcs   :rts
+         lda   uflags,y
+         and   #F_PLAYER+F_DEAD
+         cmp   #F_PLAYER
+         bne   :n
+         lda   tmp2
+         cmp   #$FFFE
+         bne   :b
+         lda   uflags,y
+         bit   #F_HARV
+         beq   :n
+         bra   :d
+:b       lda   uflags,y
+         bit   #F_BUILDING
+         beq   :n
+         lda   tmp2
+         cmp   #$FFFF
+         beq   :d
+         cmp   uspr,y
+         bne   :n
+:d       lda   utile,y
+         jsr   tdist
+         cmp   tmp3
+         bcs   :n
+         sta   tmp3
+         sty   aiwtgt
+:n       iny
+         iny
+         bra   :l
+:rts     rts
+
+* wrear: (every 16 frames) aiwrear = the distance of its furthest
+* attacker from their target; when that hasn't shrunk for 24 times
+* (6 s: some stuck, or all fighting), 0 for the rest of this attack:
+* nobody waits any more
+wrear    lda   aiwtgt
+         bmi   :off
+         lda   aiwstall
+         cmp   #24
+         bcs   :off
+         ldx   aiwtgt
+         lda   utile,x
+         sta   ntile
+         stz   tmp3
+         ldy   #0
+:l       cpy   nunits
+         bcs   :got
+         lda   uflags,y
+         and   #F_DEAD+F_AMOVE
+         cmp   #F_AMOVE
+         bne   :n
+         lda   utile,y
+         jsr   tdist
+         cmp   tmp3
+         bcc   :n
+         sta   tmp3
+:n       iny
+         iny
+         bra   :l
+:got     lda   tmp3
+         cmp   aiwrear
+         bcc   :closer
+         lda   aiwrear
+         beq   :closer
+         inc   aiwstall
+         bra   :set
+:closer  stz   aiwstall
+:set     lda   tmp3
+         sta   aiwrear
+         rts
+:off     stz   aiwrear
+         rts
+
+* wavehold: X = an attacker, Y = its target (both kept) -> carry set if
+* it waits: far ahead of the others on the way (its distance + 3 still
+* short of the furthest one's), not yet near the target, not mid-step
+wavehold lda   aiwrear
+         beq   :no
+         cpy   aiwtgt
+         bne   :no
+         lda   unext,x
+         bpl   :no
+         lda   utile,y
+         sta   ntile
+         lda   utile,x
+         jsr   tdist
+         sta   tmp
+         lda   urange,x
+         clc
+         adc   #3
+         cmp   tmp
+         bcs   :no              ; (near it: fight)
+         lda   tmp
+         clc
+         adc   #3
+         cmp   aiwrear
+         bcs   :no
+         lda   upathlen,x       ; wait here
+         sta   upathpos,x
+         sec
+         rts
+:no      clc
+         rts
+
+aitmpl   dw    TMPL_PPE,TMPL_REFE,TMPL_BARE,TMPL_FACTE ; (rebuilt in
+aislots  dw    ppunit,refunit,barunit,factunit         ;   this order: the
+                                ;   power plant first, the rest at full
+                                ;   speed then)
 
 ai       lda   aiwait           ; (count down to the next wave)
-         beq   :bar
+         beq   :cd
          dec   aiwait
-:bar     lda   aibuild
+:cd      lda   aidefcd          ; (and to the next call for help)
+         beq   :rear
+         dec   aidefcd
+:rear    jsr   aiguard          ; (one of its units at home a frame)
+         lda   frame            ; (every 16 frames: how far back its
+         and   #15              ;   attack's last ones are)
+         bne   :bar
+         jsr   wrear
+:bar     jsr   aistruct         ; its buildings: one at a time, beside
+         jsr   airepair         ;   its units (and repaired)
+         lda   aibuild
          bpl   :busy
          jsr   aiharv           ; no harvester? its refinery makes one
          bcc   :rebld
@@ -7836,17 +8330,22 @@ ai       lda   aiwait           ; (count down to the next wave)
          lda   #AIHARVT
          sta   aitimer
          jmp   :wave
-:rebld   jsr   airebuild        ; a building gone: rebuild it
-         bcc   :order
-         jmp   :wave
+:rebld
 :order   ldy   aiidx            ; next in the build order: if the
          ldx   aiorder,y        ;   building it needs stands (else on to
          lda   templates+28,x   ;   the next) and it can afford it
          jsr   findbld
          bpl   :can
          jmp   :nextidx
-:can     lda   aicredits
-         cmp   templates+14,x
+:can     lda   aisbuild         ; (a building it saves up for: that
+         bpl   :all             ;   much kept back, aistimer)
+         lda   aicredits
+         sec
+         sbc   aistimer
+         bcs   :left
+         jmp   :wave
+:all     lda   aicredits
+:left    cmp   templates+14,x
          bcs   :afford
          jmp   :wave
 :afford  jsr   aicount          ; and it has fewer than aimax out
@@ -7866,14 +8365,9 @@ ai       lda   aiwait           ; (count down to the next wave)
          asl
          sta   aitimer
          bra   :wave
-:busy    ldx   ppunit           ; without its power plant: half speed
-         lda   #TMPL_PPE
-         jsr   standing
-         bcs   :fast
-         lda   frame
-         lsr
+:busy    jsr   aislow           ; without its power plant: half speed
          bcs   :wave
-:fast    dec   aitimer
+         dec   aitimer
          bne   :wave
          lda   aibuild          ; done: it comes out of its building
          sta   spawnt           ;   (gone meanwhile: lost)
@@ -7922,10 +8416,11 @@ ai       lda   aiwait           ; (count down to the next wave)
 
 :wave    lda   frame            ; every 64 frames: time for a wave, and
          and   #63              ; enough units for it?
-         bne   :rts
+         bne   :rts0
          lda   aiwait
-         bne   :rts
-         stz   tmp
+         beq   :wv
+:rts0    rts
+:wv      stz   tmp
          ldx   #0
 :count   cpx   nunits
          bcs   :counted
@@ -7965,18 +8460,165 @@ ai       lda   aiwait           ; (count down to the next wave)
 :s2      inx
          inx
          bra   :send
-:sent    lda   aigap            ; the next one later, and bigger
-         sta   aiwait
+:sent    lda   #NONE            ; (its target picked anew, together)
+         sta   aiwtgt
+         stz   aiwrear
+         stz   aiwstall
+         jsr   aigapr           ; the next one later (at random: a half
+         sta   aiwait           ;   to one and a half aigap), and bigger
          lda   wavesize
          cmp   aiwavemax
          bcs   :rts
          inc   wavesize
 :rts     rts
 
+* aislow: carry set on the frames the enemy skips building (every
+* other one while its power plant is gone)
+aislow   ldx   ppunit
+         lda   #TMPL_PPE
+         jsr   standing
+         bcs   :fast
+         lda   frame
+         lsr
+         rts
+:fast    clc
+         rts
+
+* aistruct: the enemy's buildings, built beside its units: none going
+* up - one gone it can pay for: start it (airebuild, every 8th frame);
+* going up - count down (aislow), done - up on its spot (aiputup; units
+* on it: again in a bit)
+aistruct lda   aisbuild
+         bpl   :busy
+         lda   frame
+         and   #7
+         bne   :rts
+         jmp   airebuild
+:busy    jsr   aislow
+         bcs   :rts
+         dec   aistimer
+         bne   :rts
+         lda   aisbuild
+         sta   spawnt
+         jsr   aiputup
+         bcs   :done
+         lda   #30
+         sta   aistimer
+         rts
+:done    lda   #NONE
+         sta   aisbuild
+:rts     rts
+
+AIKEEP   equ   300              ; repairs: money the enemy keeps for units
+AIFIXAT  equ   600              ;   and what it must have to start one
+
+* airepair: every 64 frames, the enemy's buildings below half their hit
+* points start repairing (F_REPAIR: repairs, paid from its money) when it
+* has AIFIXAT credits
+airepair lda   frame
+         and   #63
+         cmp   #32
+         bne   :rts
+         lda   aicredits
+         cmp   #AIFIXAT
+         bcc   :rts
+         ldx   #0
+:l       cpx   nunits
+         bcs   :rts
+         lda   uflags,x
+         and   #F_PLAYER+F_DEAD+F_BUILDING+F_REPAIR
+         cmp   #F_BUILDING
+         bne   :n
+         lda   umaxhp,x
+         lsr
+         cmp   uhp,x
+         bcc   :n
+         beq   :n
+         lda   uflags,x
+         ora   #F_REPAIR
+         sta   uflags,x
+:n       inx
+         inx
+         bra   :l
+:rts     rts
+
+* aiguard: one of the enemy's units at home a frame (in turn): one it
+* built, armed, doing nothing (no target, going nowhere) and more than 8
+* tiles from its gathering place (by the door of its barracks, else war
+* factory): sent back there - so units that chased one of ours away come
+* home again instead of standing where it fell
+aiguard  lda   aigidx
+         inc
+         inc
+         cmp   nunits
+         bcc   :i
+         lda   #0
+:i       sta   aigidx
+         tax
+         lda   uflags,x         ; (built by it: the map's own stay where
+         bit   #F_AI            ;   the map put them)
+         beq   :rts
+         bit   #F_PLAYER+F_DEAD+F_BUILDING+F_STATIC+F_HARV+F_AMOVE
+         bne   :rts
+         lda   urange,x
+         beq   :rts
+         lda   utarget,x
+         and   ugoal,x
+         and   unext,x
+         bpl   :rts             ; (all three NONE: all negative)
+         lda   aitl+4           ; its gathering place: the barracks' door
+         bmi   :f
+         clc
+         adc   #3*MAPW
+         bra   :h
+:f       lda   aitl+6           ;   (else the war factory's)
+         bmi   :rts
+         clc
+         adc   #2*MAPW
+:h       sta   ntile
+         lda   utile,x
+         jsr   tdist
+         cmp   #9
+         bcc   :rts
+         lda   ntile
+         sta   clicked
+         stx   self
+         jsr   clearclaimed
+         jsr   pickgoal
+         bcc   :rts
+         sta   goal
+         stz   avoid
+         ldx   self
+         jsr   pathto
+:rts     rts
+
+* aigapr: A = the frames to the next wave: aigap / 2 + a random part
+* below aigap
+aigapr   jsr   aiaand
+:m       cmp   aigap
+         bcc   :ok
+         sbc   aigap
+         bra   :m
+:ok      sta   tmp
+         lda   aigap
+         lsr
+         clc
+         adc   tmp
+         rts
+
+* aiaand: A = a random number (a 16-bit shift register: airnd)
+aiaand   lda   airnd
+         lsr
+         bcc   :z
+         eor   #$B400
+:z       sta   airnd
+         rts
+
 * airebuild: one of the enemy's buildings gone, the money for it there
 * and its spot clear of units: start rebuilding it (aibuild, aitimer,
 * aisite; carry set)
 airebuild
+         stz   aistimer         ; (idle: aistimer is what to keep back)
          ldy   #0
 :loop    lda   aislots,y
          sta   tmp
@@ -7988,21 +8630,26 @@ airebuild
          ldx   aitmpl,y
          lda   aicredits
          cmp   templates+14,x
-         bcc   :next            ; (not the money)
-         jsr   aiclear
+         bcs   :money
+         lda   aistimer         ; not the money yet: its units keep that
+         bne   :next            ;   much back for it (the first one
+         lda   templates+14,x   ;   missing), or it never gets there
+         sta   aistimer
+         bra   :next
+:money   jsr   aiclear
          bcc   :next
          ldx   aitmpl,y
          lda   aicredits
          sec
          sbc   templates+14,x
          sta   aicredits
-         stx   aibuild
+         stx   aisbuild
          sty   aisite
          lda   templates+16,x
          asl
          asl
          asl
-         sta   aitimer
+         sta   aistimer
          sec
          rts
 :next    iny

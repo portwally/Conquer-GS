@@ -213,7 +213,15 @@ stands still for the few frames until its path is ready. Attack routes end
 at the first reachable tile from which the target is in range. Idle units of
 the same side step aside to let others through (harvesters only when they
 have no work); a unit whose way is blocked by units that cannot move waits
-and keeps trying.
+and keeps trying. Units waiting for a search queue up: the first one to
+wait while a search runs (`jobwant`, a byte in page zero) gets the next,
+unless it stopped asking (`jobturn`; 60 others turned away: out of line)
+- before, whoever asked first after a search ended got it, and in a crowd
+some never did and stood for ever. Two of ours stuck a while, one on the
+other's next tile and standing still, change places (`swap`). A harvester
+whose dock another unit stands on waits out of the way, without a goal, so
+others can budge it, and tries again 45 frames later; `nudge` marks the
+dock itself as taken, so a unit parked on the enemy's dock moves off.
 
 Units take turns: each decides what to do every other frame (half of them
 each frame; harvesters every frame), idle units look for targets every 32
@@ -245,8 +253,7 @@ The enemy's base has a barracks, a war factory, a refinery, a power plant,
 a turret and two guard towers. It starts with some credits and a
 harvester; for each scoop the harvester unloads at its refinery it gets
 its share, and without a harvester (while its refinery stands) the
-refinery makes a new one, free, in 30 seconds, building nothing else
-meanwhile. Its harvester is not one of the units it built: it never joins
+refinery makes a new one, free, in 30 seconds. Its harvester is not one of the units it built: it never joins
 a wave. It builds soldier, rocket soldier,
 tank, soldier, buggy, rocket soldier, over and over - infantry at its
 barracks, vehicles at its war factory, skipping what it has no building
@@ -254,17 +261,30 @@ for, at half speed without its power plant - with at most a few of the
 units it built alive at once. New units gather by their building's door
 (`standing` checks that a building in a remembered slot is still the one
 it was). After a while its first attack wave leaves;
-after that, waves go at least some seconds apart, one unit bigger each time
-up to a limit, and units beyond the wave's size stay home. A wave marches on
-the command center, fighting anything it meets on the way. Its starting
-units stay home and defend. All units and structures share one table of 48;
+after that, waves go some seconds apart (`aigapr`: at random, half to
+one and a half `aigap`), one unit bigger each time up to a limit, and
+units beyond the wave's size stay home. A wave goes for one target
+together (`wavetgt`, `aiwtgt`): our refinery nearest to it, else our power
+plant, war factory, harvester, else any building - picked again when
+it's gone - fighting anything it meets on the way; one more than 3 tiles
+ahead of the furthest (`wrear`, every 16 frames) waits for the rest
+(`wavehold`), unless near the target or that distance hasn't shrunk for 6
+seconds. Its starting units stay home and defend; when one of ours hits
+its base or harvester it sends help (`aihit`, `aidefend`, at most once a
+second): its nearest armed units at home, up to 6, until their hit points
+add up to twice the attacker's. Units it built that end up more than 8
+tiles from its barracks' door with nothing to do go back (`aiguard`).
+Its buildings below half their hit points repair themselves when it has
+600 credits (`airepair`, paid from its money, stopping at 300). All units and structures share one table of 48;
 when it is full and the enemy cannot build, its next wave goes with as many
 units as its first. It rebuilds its buildings (`airebuild`): when one
 is gone, it has the money (`STRUCTS`: 500 to 1500) and no unit stands on
 the spot, it puts it up there again after its build time (15 to 25
-seconds; `putbld`, shared with our placing), the refinery first, then
-the power plant, the war factory, the barracks; nothing else is built
-meanwhile. The numbers per difficulty (`DIFFICULTIES` in
+seconds; `putbld`, shared with our placing), the power plant first, then
+the refinery, the barracks, the war factory - one at a time in a lane of
+its own (`aistruct`: `aisbuild`, `aistimer`) beside its units; while one
+is missing that it can't pay for yet, its units leave that much of its
+money alone. The numbers per difficulty (`DIFFICULTIES` in
 `tools/makegfx.py`):
 
 | | EASY | NORMAL | HARD |
@@ -272,7 +292,7 @@ meanwhile. The numbers per difficulty (`DIFFICULTIES` in
 | credits at the start | 400 | 700 | 1000 |
 | credits for each scoop (25) its harvester unloads | 4 | 6 | 9 |
 | first wave after | 3 min | 2 min | 90 s |
-| then waves at least apart | 80 s | 60 s | 45 s |
+| then waves about apart (at random) | 80 s | 60 s | 45 s |
 | wave size, first to most | 2 to 4 | 3 to 5 | 3 to 6 |
 | its units out at once, at most | 5 | 6 | 8 |
 

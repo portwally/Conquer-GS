@@ -11,9 +11,11 @@ local function check(ok, msg)
 end
 local TANK = 0
 local function alive(i) return G.w(V.UFLAGS, i) & V.F_DEAD == 0 end
-local function shoot(f, unitvar)             -- our tank kills a building
+local hurt                                   -- (kept at 1 hit point till
+local function shoot(f, unitvar)             --   it falls: it repairs itself)
   G.at(f, function()
     local b = G.w(unitvar) // 2
+    hurt = b
     G.sw(V.UHP, b, 1)
     local x, y = G.unitxy(TANK); G.click(f + 1, x, y)
   end)
@@ -40,13 +42,13 @@ G.at(800, function()
   G.teleport(TANK, pptl % 32, pptl // 32)                  -- on its spot
 end)
 G.at(1100, function()
-  check(G.w(V.AIBUILD) ~= V.TMPL_PPE, "not rebuilt while our tank stands on the spot")
+  check(not standing(V.PPUNIT, V.TMPL_PPE), "not put up while our tank stands on the spot")
   G.teleport(TANK, 27, 10)
 end)
 local started
 G.at(1140, function()
   started = G.w(V.FRAME)
-  check(G.w(V.AIBUILD) == V.TMPL_PPE, "spot clear: rebuilding it")
+  check(G.w(V.AISBUILD) == V.TMPL_PPE, "rebuilding it")
 end)
 G.at(3060, function()
   check(standing(V.PPUNIT, V.TMPL_PPE) and G.w(V.UCARGO, G.w(V.PPUNIT) // 2) == pptl,
@@ -77,5 +79,10 @@ G.run(4515, function(f)
     G.sw(V.AIWAIT, 0, 30000); G.sw(V.AIMAX, 0, 0)          -- no units, no waves
     G.sw(V.AICREDITS, 0, 5000)
     G.sw(V.UHP, TANK, 3000)
+    if hurt then
+      if alive(hurt) and G.w(V.UFLAGS, hurt) & V.F_BUILDING ~= 0 then
+        G.sw(V.UHP, hurt, 1); G.sw(V.UFLAGS, hurt, G.w(V.UFLAGS, hurt) & ~V.F_REPAIR)
+      else hurt = nil end
+    end
   end
 end)

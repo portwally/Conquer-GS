@@ -126,6 +126,10 @@ Most print their findings and end with `problems: 0` when all is well.
   the game ends; prints when the first wave left, when the command center
   was first hit, when the game ended and what the enemy built, then clicks
   to restart.
+- `tools/aideftest.lua` (240 s): Green Valley, no attack waves, an enemy
+  army at home; one of our tanks shoots its refinery: within a second it
+  sends 2 to 6 of its nearest units after the tank (together at least
+  twice its hit points), not all of them. Dumps `d1_defend`.
 - `tools/defendtest.lua` (900 s): a simple defense (two turrets, a
   barracks and a war factory, then tanks while there is money) for up to 8
   minutes.

@@ -192,16 +192,20 @@ barracks.
 The enemy has a base like yours: a barracks for its soldiers and rocket
 soldiers, a war factory for its tanks and buggies, a refinery, a power
 plant, a turret and guard towers. It sends its units against your base in
-waves that grow bigger over time; its starting units stay home and defend.
+waves that grow bigger over time, at random intervals. A wave keeps
+together and goes for your economy: your refinery first, then your power
+plant, war factory, harvesters, then the rest. Its starting units stay
+home and defend, and when you hit its base or its harvester it sends its
+nearest units after you - enough to beat you, not all of them - which
+then go home again. Its damaged buildings repair themselves.
 Its money comes from its harvester, which mines the ore near its base and
 unloads at its refinery. Destroy the harvester and its income stops until
-the refinery has made a new one, which takes 30 seconds (and it builds
-nothing else meanwhile). Without its war factory it builds no more
+the refinery has made a new one, which takes 30 seconds. Without its war factory it builds no more
 vehicles, without its refinery it earns nothing, and without its power
 plant it builds at half speed. But it rebuilds what you destroy, on the
-same spot, once it has the money and the spot is clear: the refinery
-first, then the power plant, the war factory and the barracks. Each takes
-it 15 to 25 seconds.
+same spot, once it has the money and the spot is clear: the power plant
+first, then the refinery, the barracks and the war factory. Each takes
+it 15 to 25 seconds, while it keeps training troops.
 
 | | Easy | Normal | Hard |
 |---|---|---|---|
