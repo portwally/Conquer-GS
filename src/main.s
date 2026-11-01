@@ -59,6 +59,8 @@ SOUNDCTL equ   $C03C            ; sound GLU: bit 7 busy, bit 6 = sound
 SOUNDDATA equ  $C03D            ;   RAM (else DOC registers), bit 5 =
 SOUNDADRL equ  $C03E            ;   auto-increment, bits 0-3 volume;
 SOUNDADRH equ  $C03F            ;   data, address
+CPVOLUME equ   $E100CA          ; the volume set in the control panel
+                                ;   (bits 0-3)
 KBD      equ   $C000            ; bit 7 = a key is waiting
 KEYMODS  equ   $C025            ; bit 7 = Apple held, bit 6 = Option
 BADGEOFF equ   $2000-1273       ; drawbadge: from READY to the number
@@ -6544,8 +6546,9 @@ shotsnd  dfb   SND_RIFLE,SND_CANNON,SND_CANNON,SND_CANNON   ; gun
 docw     pha
 :busy    lda   SOUNDCTL
          bmi   :busy
-         and   #$0F             ; registers, no auto-increment; the
-         sta   SOUNDCTL         ; volume as the control panel set it
+         ldal  CPVOLUME         ; registers, no auto-increment; the
+         and   #$0F             ; volume as the control panel set it
+         sta   SOUNDCTL         ; (it can't be read back from SOUNDCTL)
          stx   SOUNDADRL
          pla
          sta   SOUNDDATA
@@ -9528,10 +9531,11 @@ loadfile lda   lfname           ; (the name, for bootpath)
          lda   loaded           ; past the size? not our file
          clc
          adc   readgot
-         bcs   :big
+         bcs   :toobig
          cmp   lfsize
+         bcc   :fits
          beq   :fits
-         bcs   :big
+:toobig  jmp   :big
 :fits    lda   lfbank           ; (into sound RAM: below)
          and   #$00FF
          cmp   #DOCDEST
@@ -9557,6 +9561,7 @@ loadfile lda   lfname           ; (the name, for bootpath)
          mx    %10              ; RAM, auto-increment, the volume as it
 :dbusy   lda   SOUNDCTL         ; is, from lfaddr + loaded
          bmi   :dbusy
+         ldal  CPVOLUME         ; (the control panel's volume)
          and   #$0F
          ora   #$60
          sta   SOUNDCTL

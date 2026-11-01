@@ -16,7 +16,14 @@ end
 local adr, log, window = 0, {}, nil
 local problems = 0
 local function check(ok, msg) if not ok then problems = problems + 1; print("  PROBLEM: " .. msg) end end
+-- the control panel's volume (at $E100CA) set to 5 from frame 690: the
+-- game's writes to the sound control register must keep it
+local volset, volwrites, volwrong = false, 0, 0
 tap = mem:install_write_tap(0xC03C, 0xC03F, "snd", function(offset, data)
+  if offset == 0xC03C and volset then
+    volwrites = volwrites + 1
+    if data & 0x0F ~= 5 then volwrong = volwrong + 1 end
+  end
   if offset == 0xC03E then adr = data & 0xFF
   elseif offset == 0xC03D and adr >= 0xA0 and adr <= 0xBF and data & 1 == 0 and data & 0x10 == 0 then
     local snd = oscsound[adr - 0xA0] or "music"
@@ -32,6 +39,7 @@ local function heard(name)
 end
 
 -- on screen: enemy soldier 7 walks up to our tanks by the command center
+G.at(690, function() mem:write_u8(0xE100CA, mem:read_u8(0xE100CA) & 0xF0 | 5); volset = true end)
 G.at(700, function() G.seeall(); open("on screen") end)
 G.at(705, function()
   G.teleport(7, 9, 18)
@@ -67,6 +75,8 @@ G.at(2000, function()
   print("building: " .. s)
   check((l.ready or 0) == 2, "two chimes: the power plant ready, the soldier out")
   check((l.place or 0) == 1, "one thud: the power plant placed")
+  print(string.format("control panel volume 5: %d writes to the sound control register, %d not at 5", volwrites, volwrong))
+  check(volwrites > 0 and volwrong == 0, "the control panel's volume kept")
   print("problems: " .. problems)
 end)
 G.run(2005, function(f) if f > 700 then mem:write_u16(V.AICREDITS, 0) end end)
