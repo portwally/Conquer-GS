@@ -1,5 +1,8 @@
 -- QUIT test (run with SHOWOPTIONS=1): on the mission setup a click on
--- QUIT must hand the machine back to ProDOS - Super Hi-Res off, the text
+-- QUIT must show CONQUER.QUIT (Conquer GS 2's page), byte for byte, and
+-- keep it up - the mouse moved with the button down on QUIT and a key
+-- pressed while it loads must not count - until a key; then hand the
+-- machine back to ProDOS - Super Hi-Res off, the text
 -- screen on, and ProDOS's program selector (Bitsy Bye on the game disk)
 -- showing there. Then CONQUER.SYSTEM chosen there must start the game
 -- again, as far as the mission setup.
@@ -32,7 +35,16 @@ local function textscreen()              -- the 40-column text page, as text
   end
   return table.concat(out, "\n")
 end
-local raw, at, again = 0, nil, nil
+local f = io.open("build/gfx/conquer.quit", "rb")
+local QPIC = f:read("a")
+f:close()
+local function quitshown(step)          -- CONQUER.QUIT on the screen?
+  for a = 0, 32767, step do
+    if mem:read_u8(0xE12000 + a) ~= QPIC:byte(a + 1) then return false end
+  end
+  return true
+end
+local raw, at, again, shown = 0, nil, nil, nil
 sub = emu.add_machine_frame_notifier(function()
   raw = raw + 1
   local rd = mem:read_u8(0xC013) >= 0x80
@@ -45,8 +57,24 @@ sub = emu.add_machine_frame_notifier(function()
   end
   if at and raw == at then G.mouse(QUIT[1], QUIT[2]) end
   if at and raw == at + 4 then btn:set_value(1) end
+  if at and raw == at + 6 and not shown then G.mouse(QUIT[1] + 3, QUIT[2] + 1) end
   if at and raw == at + 8 then btn:clear_value() end
-  if at and raw == at + 400 then
+  if at and raw == at + 30 and not shown then manager.machine.natkeyboard:post("x") end
+  if at and raw > at + 8 and not shown and quitshown(97) then
+    shown = raw
+    check(quitshown(1), string.format("Conquer GS 2's page, byte for byte (%d frames)", raw - at))
+    G.dump("quitpage")
+  end
+  if shown and raw == shown + 60 then
+    check(mem:read_u8(0xC029) & 0x80 ~= 0 and quitshown(1), "  still up after a second (the key, the mouse before: not counted)")
+    manager.machine.natkeyboard:post(" ")
+    at = raw - 8                         -- (ProDOS's turn: as before)
+  end
+  if at and not shown and raw == at + 600 then
+    check(false, "Conquer GS 2's page")
+    shown = raw - 60
+  end
+  if at and shown and raw == at + 400 then
     local t = textscreen()
     check(mem:read_u8(0xC029) & 0x80 == 0, "Super Hi-Res off")
     check(mem:read_u8(0xC01A) >= 0x80, "the text screen on")

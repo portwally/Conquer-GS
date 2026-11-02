@@ -2014,6 +2014,8 @@ FONT = {  # 3x5 glyphs
     ':': ["...", ".#.", "...", ".#.", "..."],
     '/': ["..#", "..#", ".#.", "#..", "#.."],
     ' ': ["...", "...", "...", "...", "..."],
+    '?': ["###", "..#", ".##", "...", ".#."],
+    ',': ["...", "...", "...", ".#.", "#.."],
 }
 
 
@@ -2412,6 +2414,62 @@ def logo(img, y):
                     out[yy][xx] = DIRT_D        # shadow
     paste(img, out, 0, y)
     return x0, x0 + w - 1
+
+
+QR_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'qr-v2.txt')
+QR_MW, QR_MH, QR_QUIET = 4, 3, 2        # a module's pixels (about square on
+                                        #   the IIgs's tall pixels), margin
+QUIT_LINES = ["THE FULL GAME:",
+              "- TWO CAMPAIGNS, 16 MISSIONS",
+              "  WITH BRIEFINGS AND STAR RATINGS",
+              "- 16 SKIRMISH MAPS, TWICE AS BIG",
+              "- 9 KINDS OF UNITS: LIGHT TANKS,",
+              "  ARTILLERY, FLAME TROOPERS AND",
+              "  ENGINEERS THAT TAKE OVER BUILDINGS",
+              "- SURVIVAL MODE AND A MAP EDITOR",
+              "- SAVE GAMES, BRUTAL DIFFICULTY"]
+
+
+def quit_screen():
+    """CONQUER.QUIT: shown on QUIT before the game hands back to ProDOS -
+    what Conquer GS 2 has more, its page's address and a QR code for it
+    (assets/qr-v2.txt: https://portwally.github.io/Conquer-GS/, made with
+    segno). A whole Super Hi-Res screen image: pixels, line palette
+    numbers (all 0), the game's palette."""
+    img = blank(SCREEN_W, SCREEN_H, CLEAR)
+    for y in range(0, SCREEN_H, 2):             # scanlines
+        rect(img, 0, y, SCREEN_W - 1, y, INK)
+    hud_corners(img, 2, 2, SCREEN_W - 3, SCREEN_H - 3, GRASS, 12)
+
+    def center2x(y, s, c):
+        text2x(img, (SCREEN_W - (len(s) * 8 - 2)) // 2, y, s, c)
+    center2x(7, "ENJOYED CONQUER GS?", GOLD)
+    center2x(22, "SUPPORT MY WORK - GET CONQUER GS 2", LIGHT)
+    rect(img, 24, 36, SCREEN_W - 25, 36, RED)
+    qr = [l.strip() for l in open(QR_FILE) if l.strip()]
+    n = len(qr)
+    qw, qh = (n + 2 * QR_QUIET) * QR_MW, (n + 2 * QR_QUIET) * QR_MH
+    qx, qy = SCREEN_W - 14 - qw, 44
+    metal_panel(img, 10, 41, qx - 8, qy + qh + 3)
+    for i, s in enumerate(QUIT_LINES):
+        text(img, 17, 49 + i * 10, s, ORE if i == 0 else LIGHT)
+    frame(img, qx - 2, qy - 2, qx + qw + 1, qy + qh + 1, INK)
+    bevel(img, qx - 1, qy - 1, qx + qw, qy + qh, STEEL, STEEL_D)
+    rect(img, qx, qy, qx + qw - 1, qy + qh - 1, LIGHT)
+    for r, row in enumerate(qr):
+        for c, m in enumerate(row):
+            if m == '#':
+                x = qx + (c + QR_QUIET) * QR_MW
+                y = qy + (r + QR_QUIET) * QR_MH
+                rect(img, x, y, x + QR_MW - 1, y + QR_MH - 1, INK)
+    hud_corners(img, qx - 5, qy - 5, qx + qw + 4, qy + qh + 4, ORE, 5)
+    center2x(qy + qh + 12, "PORTWALLY.GITHUB.IO/CONQUER-GS", GOLD)
+    s = "THANKS FOR PLAYING - PRESS ANY KEY"
+    text(img, (SCREEN_W - text_width(s)) // 2, 186, s, STEEL)
+    pic = bytearray(pack(img)) + bytes(0x7E00 - 32000)     # (line palettes 0)
+    pic += b''.join(struct.pack('<H', (r << 8) | (g << 4) | b) for r, g, b in PALETTE)
+    pic += bytes(32768 - len(pic))
+    return img, bytes(pic)
 
 
 def options_screen():
@@ -2970,6 +3028,10 @@ def main(outdir):
     cells = maps[0]
     units = unit_records()
 
+    # CONQUER.QUIT: the screen on QUIT (a Super Hi-Res screen image)
+    qimg, qpic = quit_screen()
+    put('conquer.quit', qpic)
+    write_png(os.path.join(outdir, 'quit_preview.png'), qimg)
     # the options screen
     opts, areas = options_screen()
     put_rle('options.rle', pack(opts))

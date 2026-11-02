@@ -47,13 +47,15 @@ tests. To just play, download the disk from the
    the program's labels to `build/equates.lua` for the test scripts.
 5. Cadius makes `build/conquer.po`, an 800K ProDOS disk with ProDOS 2.4.3,
    CONQUER.SYSTEM, CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE (the title
-   picture, from `assets/title.shr`) and CONQUER.HELP (the instruction
-   pages).
+   picture, from `assets/title.shr`), CONQUER.HELP (the instruction
+   pages) and CONQUER.QUIT (the screen shown on QUIT, about Conquer GS 2;
+   its QR code from `assets/qr-v2.txt`).
 
 The game reads its files from its own folder, or else from the top folder
 of the disk it started from. Without CONQUER.TITLE the options screen comes
 straight away, without CONQUER.SOUND the game is silent, without
-CONQUER.HELP the HOW TO PLAY button does nothing; if CONQUER.DATA is
+CONQUER.HELP the HOW TO PLAY button does nothing, without CONQUER.QUIT
+QUIT goes straight back; if CONQUER.DATA is
 missing or damaged it says so on the text screen and stops.
 
 `run.sh` passes extra arguments to MAME, and turns the Mac's mouse off when
@@ -221,7 +223,8 @@ Most print their findings and end with `problems: 0` when all is well.
   to 90 a frame, more than the mouse's 7 bits: MAME wraps it) the arrow
   must never jump against the hand's way, nor up or down.
 - `tools/quittest.lua` (300 s, run with `SHOWOPTIONS=1`): QUIT on the
-  mission setup must turn Super Hi-Res off and show ProDOS's program
+  mission setup must show CONQUER.QUIT, byte for byte, and keep it up
+  until a key; then turn Super Hi-Res off and show ProDOS's program
   selector on the text screen; CONQUER.SYSTEM chosen there must start the
   game again, as far as the mission setup.
 - `tools/pausetest.lua` (120 s, run with `SHOWOPTIONS=1`): Space must

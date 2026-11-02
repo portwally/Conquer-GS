@@ -539,11 +539,22 @@ costs about 12 frames.
 
 ## Quitting
 
-QUIT on the mission setup (`quit`) hands the machine back: the banks
+QUIT on the mission setup (`quit`) first shows CONQUER.QUIT (`quitpic`):
+a whole screen image about Conquer GS 2, with its web page's address and a
+QR code for it (`assets/qr-v2.txt`, made once with the segno library:
+`https://portwally.github.io/Conquer-GS/`; each module 4 pixels wide and 3
+high, about square on the IIgs's tall pixels). The loader needs page zero
+as ProDOS has it (it prints its dots with COUT), so `zrest` puts it back
+first; the file goes into CONQUER.DATA's bank, no longer needed, and from
+there onto the screen with one MVN, so it doesn't build up line by line
+while the disk turns. A key, or the mouse button read straight from the
+ADB (the game's mouse code keeps its state in page zero), goes on.
+Without the file QUIT goes on at once. Then it hands the machine back: the banks
 given back to the Memory Manager (`memfree`), every sound oscillator
 halted, no mouse report left waiting, page zero, NEWVIDEO and the shadow
 register as they were at the start (`ZPKEEP`, `oldvideo`, `oldshadow`),
 the text screen on, emulation mode, then ProDOS's QUIT call - to the
 program selector (Bitsy Bye on the game disk), or, started from the
 Finder, back to GS/OS. GS/OS needs both its memory left alone and page
-zero as it was; without them it hangs on its way back.
+zero as it was (`zrest` again: the loader used it); without them it
+hangs on its way back.

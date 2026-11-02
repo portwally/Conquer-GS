@@ -58,8 +58,8 @@ and a mouse, or an emulator.
 - **On a real IIgs:** write the disk image to a 3.5" disk, or use it with a
   FloppyEmu, BlueSCSI or similar device, and boot from it. The game also
   finds its files in a folder on a hard disk: copy CONQUER.SYSTEM,
-  CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE and CONQUER.HELP into one
-  folder and start CONQUER.SYSTEM.
+  CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE, CONQUER.HELP and
+  CONQUER.QUIT into one folder and start CONQUER.SYSTEM.
 - **In MAME** (on a Mac, easiest through [Ample](https://github.com/ksherlock/ample)):
   choose the Apple IIgs (ROM 3 or ROM 01) with 1 MB of memory or more (2 MB
   is the default), put conquer.po in the first 3.5" drive and start it.
@@ -120,7 +120,7 @@ setup).
 | See what something is | Rest the mouse on it |
 | Cancel placing a structure, selling or repairing | Space |
 | Pause (and see the controls) | Esc; then RESUME (or Esc, Space, RETURN) or QUIT MISSION (or Q) to go back to the mission setup |
-| Leave the game | QUIT on the mission setup (top right): back to ProDOS's program selector, or to the Finder when started from GS/OS |
+| Leave the game | QUIT on the mission setup (top right): a page about Conquer GS 2 (with a QR code to its web page), then any key or click: back to ProDOS's program selector, or to the Finder when started from GS/OS |
 | Turn the music off or on | M |
 
 

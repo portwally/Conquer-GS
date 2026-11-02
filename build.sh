@@ -41,5 +41,8 @@ cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.HELP#060000" > /dev/
 # the title picture (a Super Hi-Res screen image, $C1), shown at start
 cp assets/title.shr "build/CONQUER.TITLE#C10000"
 cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.TITLE#C10000" > /dev/null
-cadius CATALOG build/conquer.po | grep -E "PRODOS|CONQUER.SYSTEM|CONQUER.DATA|CONQUER.TITLE|CONQUER.SOUND|CONQUER.HELP"
+# the screen on QUIT: Conquer GS 2 (a Super Hi-Res screen image, $C1)
+cp build/gfx/conquer.quit "build/CONQUER.QUIT#C10000"
+cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.QUIT#C10000" > /dev/null
+cadius CATALOG build/conquer.po | grep -E "PRODOS|CONQUER.SYSTEM|CONQUER.DATA|CONQUER.TITLE|CONQUER.SOUND|CONQUER.HELP|CONQUER.QUIT"
 echo "Built build/conquer.po"

@@ -9208,15 +9208,15 @@ setpalette
 *-------------------------------------------------------------------
 * QUIT on the mission setup, and the memory the game asks for
 
-* quit: the machine as ProDOS had it - the banks given back to the
-* Memory Manager, the sound halted, no mouse report waiting, page zero,
-* the text screen, NEWVIDEO and shadowing as at the start, emulation
-* mode - then ProDOS's QUIT: to the program selector, or, started from
-* the Finder, back to GS/OS (which needs its memory left alone and page
-* zero as it was). (Does not come back.)
+* quit: Conquer GS 2's page (quitpic), then the machine as ProDOS had
+* it - the banks given back to the Memory Manager, the sound halted, no
+* mouse report waiting, page zero, the text screen, NEWVIDEO and
+* shadowing as at the start, emulation mode - then ProDOS's QUIT: to the
+* program selector, or, started from the Finder, back to GS/OS (which
+* needs its memory left alone and page zero as it was). (Does not come
+* back.)
 quit     phk                    ; (the data bank: ours)
          plb
-         jsr   memfree
          lda   soundok          ; every oscillator halted
          beq   :nos
          ldx   #$A0
@@ -9227,6 +9227,8 @@ quit     phk                    ; (the data bank: ours)
          bne   :halt
 :nos     lda   #0
          tcd
+         jsr   quitpic
+         jsr   memfree
          sep   #$20
          mx    %10
 :drain   lda   KMSTATUS         ; no mouse report left waiting, no key
@@ -9234,12 +9236,7 @@ quit     phk                    ; (the data bank: ours)
          lda   MOUSEDAT
          bra   :drain
 :drained sta   KBDSTRB
-         ldx   #0               ; page zero as it was at the start
-:zback   ldal  ZPKEEP,x
-         sta   $00,x
-         inx
-         cpx   #$100
-         bne   :zback
+         jsr   zrest
          lda   oldshadow
          sta   SHADOW
          lda   oldvideo
@@ -9256,6 +9253,74 @@ quit     phk                    ; (the data bank: ours)
          da    quitp
 :stay    bra   :stay
 quitp    dfb   4,0,0,0,0,0,0
+         mx    %10
+* zrest: page zero as it was at the start (8-bit A, 16-bit X)
+zrest    ldx   #0
+:z       ldal  ZPKEEP,x
+         sta   $00,x
+         inx
+         cpx   #$100
+         bne   :z
+         rts
+
+         mx    %00
+* quitpic: CONQUER.QUIT - what Conquer GS 2 has more, its page and a QR
+* code - on the screen until a key or a click (without it: nothing).
+* Read with page zero as ProDOS has it (the loader prints its dots),
+* into CONQUER.DATA's bank (done with), then onto the screen at once.
+quitpic  sep   #$20
+         mx    %10
+         jsr   zrest
+         sec
+         xce
+         mx    %11
+         lda   #<quitname
+         sta   lfname
+         lda   #>quitname
+         sta   lfname+1
+         lda   #DATABANK
+         sta   lfbank
+         stz   lfaddr
+         stz   lfaddr+1
+         stz   lfsize
+         lda   #>32768
+         sta   lfsize+1
+         jsr   loadfile
+         bcs   :none
+         clc
+         xce
+         rep   #$30
+         mx    %00
+         ldx   #0
+         ldy   #$2000
+         lda   #$7FFF
+         mvn   DATABANK,^SHR
+         phk
+         plb
+         sep   #$20
+         mx    %10
+:drain   lda   KMSTATUS         ; (nothing from before it counts: no
+         bpl   :drained         ;   mouse report waiting, no key)
+         lda   MOUSEDAT
+         bra   :drain
+:drained sta   KBDSTRB
+:wait    lda   KBD              ; a key,
+         bmi   :done
+         lda   KMSTATUS         ;   or the mouse button down
+         bpl   :wait
+         and   #$02             ; (out of step: Y comes next)
+         bne   :y
+         lda   MOUSEDAT
+:y       lda   MOUSEDAT         ; (bit 7 clear: down)
+         bmi   :wait
+         mx    %11
+:none    clc                    ; (from :wait: native already, stays)
+         xce
+:done    rep   #$30
+         mx    %00
+         rts
+quitname dfb   12
+         asc   'CONQUER.QUIT'
 oldvideo dw    0                ; NEWVIDEO and SHADOW as they were at
 oldshadow dw   0                ;   the start
 
