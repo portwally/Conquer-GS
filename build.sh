@@ -44,5 +44,10 @@ cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.TITLE#C10000" > /dev
 # the screen on QUIT: Conquer GS 2 (a Super Hi-Res screen image, $C1)
 cp build/gfx/conquer.quit "build/CONQUER.QUIT#C10000"
 cadius ADDFILE build/conquer.po /CONQUER.GS/ "build/CONQUER.QUIT#C10000" > /dev/null
+# the Finder's icon (an ICONS folder on the disk)
+python3 tools/makeicons.py build/gfx
+cp build/gfx/conquer.icons "build/CONQUER.ICONS#CA0000"
+cadius CREATEFOLDER build/conquer.po /CONQUER.GS/ICONS > /dev/null
+cadius ADDFILE build/conquer.po /CONQUER.GS/ICONS/ "build/CONQUER.ICONS#CA0000" > /dev/null
 cadius CATALOG build/conquer.po | grep -E "PRODOS|CONQUER.SYSTEM|CONQUER.DATA|CONQUER.TITLE|CONQUER.SOUND|CONQUER.HELP|CONQUER.QUIT"
 echo "Built build/conquer.po"

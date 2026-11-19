@@ -59,7 +59,9 @@ and a mouse, or an emulator.
   FloppyEmu, BlueSCSI or similar device, and boot from it. The game also
   finds its files in a folder on a hard disk: copy CONQUER.SYSTEM,
   CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE, CONQUER.HELP and
-  CONQUER.QUIT into one folder and start CONQUER.SYSTEM.
+  CONQUER.QUIT into one folder and start CONQUER.SYSTEM. For the game's icon in
+  the GS/OS Finder (the Iron Guard's fist), copy ICONS/CONQUER.ICONS from
+  the disk into the Icons folder of that volume.
 - **In MAME** (on a Mac, easiest through [Ample](https://github.com/ksherlock/ample)):
   choose the Apple IIgs (ROM 3 or ROM 01) with 1 MB of memory or more (2 MB
   is the default), put conquer.po in the first 3.5" drive and start it.

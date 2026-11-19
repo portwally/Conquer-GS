@@ -49,7 +49,8 @@ tests. To just play, download the disk from the
    CONQUER.SYSTEM, CONQUER.DATA, CONQUER.SOUND, CONQUER.TITLE (the title
    picture, from `assets/title.shr`), CONQUER.HELP (the instruction
    pages) and CONQUER.QUIT (the screen shown on QUIT, about Conquer GS 2;
-   its QR code from `assets/qr-v2.txt`).
+   its QR code from `assets/qr-v2.txt`), and an ICONS folder with
+   CONQUER.ICONS, the GS/OS Finder's icon for CONQUER.SYSTEM.
 
 The game reads its files from its own folder, or else from the top folder
 of the disk it started from. Without CONQUER.TITLE the options screen comes
@@ -70,6 +71,7 @@ under a test. MAME captures the mouse; switch away with Cmd-Tab.
 | `tools/makegfx.py` | draws the art and writes the graphics, maps, options screen and name tags |
 | `tools/makemusic.py` | the two tunes: scores, instruments, and previews rendered as the chip plays them |
 | `tools/makesound.py` | makes the sound effects and lays them out in the sound chip's RAM |
+| `tools/makeicons.py` | CONQUER.ICONS for the GS/OS Finder (ICONS folder on the disk): the Iron Guard's badge, hand-pixeled 28 x 23 and a small one, the same as Conquer GS 2's |
 | `tools/equates.py` | evaluates the program's equates for the test scripts |
 | `tools/*.lua` | test and measuring scripts for MAME (below) |
 | `tools/*check.py`, `tools/shr2png.py` | check recordings, turn screen dumps into PNGs |
